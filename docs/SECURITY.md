@@ -84,95 +84,99 @@ If validation fails → `400` with safe error body:
 
 ```json
 { "error": "INVALID_INPUT" }
+```
 
+---
 
-⸻
-
-6. 🧍‍♂️ PII Handling Policy
+## 6. 🧍‍♂️ PII Handling Policy
 
 PII is allowed in this demo (names, company names, renewal dates), but must follow these rules:
 
-Rule	Requirement
-No PII in logs	Logs store IDs, not names
-No PII in prompt behind user back	Copilot must not “reveal hidden data”
-PII stored only in Neon	JSON in S3 must be customer-metadata only (not secrets)
-No sharing between tenants	(future multi-tenant path)
+| Rule                              | Requirement                                             |
+| --------------------------------- | ------------------------------------------------------- |
+| No PII in logs                    | Logs store IDs, not names                               |
+| No PII in prompt behind user back | Copilot must not “reveal hidden data”                   |
+| PII stored only in Neon           | JSON in S3 must be customer-metadata only (not secrets) |
+| No sharing between tenants        | (future multi-tenant path)                              |
 
+---
 
-⸻
+## 7. 🕸️ OWASP Alignment
 
-7. 🕸️ OWASP Alignment
+| OWASP Top 10                 | Mitigation in System                   |
+| ---------------------------- | -------------------------------------- |
+| A01: Broken Access Control   | Session auth + HMAC + IAM              |
+| A02: Cryptographic Failures  | HTTPS + HMAC                           |
+| A03: Injection               | No SQL from user input, Zod validation |
+| A05: Auth Failures           | BetterAuth controls                    |
+| A07: IDOR                    | Customer lookups by customerId + auth  |
+| A08: Software/Data Integrity | Locked deps + checksum                 |
+| A09: Security Logging        | CloudWatch + correlation IDs           |
+| A10: SSRF                    | Lambdas do not call arbitrary URLs     |
 
-OWASP Top 10	Mitigation in System
-A01: Broken Access Control	Session auth + HMAC + IAM
-A02: Cryptographic Failures	HTTPS + HMAC
-A03: Injection	No SQL from user input, Zod validation
-A05: Auth Failures	BetterAuth controls
-A07: IDOR	Customer lookups by customerId + auth
-A08: Software/Data Integrity	Locked deps + checksum
-A09: Security Logging	CloudWatch + correlation IDs
-A10: SSRF	Lambdas do not call arbitrary URLs
+---
 
-
-⸻
-
-8. 🛡️ IAM Policy Model
+## 8. 🛡️ IAM Policy Model
 
 Each Lambda gets a minimal policy, example:
 
+```json
 {
   "Version": "2012-10-17",
   "Statement": [
-    { "Effect": "Allow", "Action": ["s3:GetObject"], "Resource": "arn:aws:s3:::cs-copilot-data/*" }
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::cs-copilot-data/*"
+    }
   ]
 }
+```
 
-No wildcard s3:*
+No wildcard s3:\*
 No cross-function role sharing
 
-⸻
+---
 
-9. 🧯 Error Handling & Redaction
+## 9. 🧯 Error Handling & Redaction
 
-Rule	Implementation
-No stack traces to UI	User gets a friendly message
-Logs use IDs, not PII	e.g., customerId: acme001
-Errors are typed	TIMEOUT, INVALID_INPUT, TOOL_FAILURE
+| Rule                  | Implementation                       |
+| --------------------- | ------------------------------------ |
+| No stack traces to UI | User gets a friendly message         |
+| Logs use IDs, not PII | e.g., customerId: acme001            |
+| Errors are typed      | TIMEOUT, INVALID_INPUT, TOOL_FAILURE |
 
+---
 
-⸻
+## 10. 📜 Threat Model
 
-10. 📜 Threat Model
+| Threat                | Mitigation                          |
+| --------------------- | ----------------------------------- |
+| Replay attacks        | Timestamp expiry on signed requests |
+| Tool spoofing         | HMAC identity verification          |
+| Session theft         | HttpOnly + secure cookies           |
+| Prompt injection      | Agent rules + deterministic scoring |
+| Over-permissive infra | IAM least privilege                 |
 
-Threat	Mitigation
-Replay attacks	Timestamp expiry on signed requests
-Tool spoofing	HMAC identity verification
-Session theft	HttpOnly + secure cookies
-Prompt injection	Agent rules + deterministic scoring
-Over-permissive infra	IAM least privilege
+---
 
+## 11. 📍 Secrets Management
 
-⸻
+| Secret         | Location                       |
+| -------------- | ------------------------------ |
+| HMAC key       | Vercel server env + Lambda env |
+| LLM keys       | Vercel server env              |
+| DB URL         | Vercel + Lambda env            |
+| Stored in Git? | ❌ Never                       |
 
-11. 📍 Secrets Management
+---
 
-Secret	Location
-HMAC key	Vercel server env + Lambda env
-LLM keys	Vercel server env
-DB URL	Vercel + Lambda env
-Stored in Git?	❌ Never
-
-
-⸻
-
-✅ Summary
+## ✅ Summary
 
 The system is secure because it:
-	•	Separates trust boundaries clearly
-	•	Signs every tool call
-	•	Uses Zod + IAM + CORS + session auth
-	•	Logs safely without exposing PII
-	•	Avoids hallucination in critical logic
 
-Next reference: API_CONTRACTS.md
-```
+- Separates trust boundaries clearly
+- Signs every tool call
+- Uses Zod + IAM + CORS + session auth
+- Logs safely without exposing PII
+- Avoids hallucination in critical logic

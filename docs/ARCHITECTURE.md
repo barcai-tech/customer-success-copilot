@@ -71,27 +71,28 @@ APIGW --> L6
 L1 --> S3
 L2 --> S3
 L3 --> S3
+```
 
+---
 
-⸻
-
-3. 🔁 Planner Sequence Diagram (SEQ)
+## 3. 🔁 Planner Sequence Diagram (SEQ)
 
 This sequence shows a multi-step agent call for:
 
 “Prepare a renewal brief for Acme Corp”
 
+```mermaid
 sequenceDiagram
-    participant User
-    participant UI as Frontend (Next.js)
-    participant SA as Server Action (Planner)
-    participant LLM as LLM (Claude/OpenAI)
-    participant APIGW as API Gateway
-    participant T1 as Lambda: get_usage
-    participant T2 as Lambda: get_tickets
-    participant T3 as Lambda: get_contract
-    participant T4 as Lambda: calc_health
-    participant T5 as Lambda: gen_email
+participant User
+participant UI as Frontend (Next.js)
+participant SA as Server Action (Planner)
+participant LLM as LLM (Claude/OpenAI)
+participant APIGW as API Gateway
+participant T1 as Lambda: get_usage
+participant T2 as Lambda: get_tickets
+participant T3 as Lambda: get_contract
+participant T4 as Lambda: calc_health
+participant T5 as Lambda: gen_email
 
     User->>UI: enters prompt
     UI->>SA: server action request
@@ -123,94 +124,98 @@ sequenceDiagram
 
     SA-->>UI: final structured result
     UI-->>User: summary + email + score
+```
 
+---
 
-⸻
-
-4. 🧮 Health Scoring Logic (Deterministic)
+## 4. 🧮 Health Scoring Logic (Deterministic)
 
 This system never uses the LLM for scoring to avoid hallucination.
 
-Factor	Weight	Signal Logic
-Usage Trend	0.45	Trend “up” = positive, “down” = negative
-Ticket Load	0.35	High ticket volume = penalty
-Renewal Proximity	0.20	<60 days = risk bump
+| Factor            | Weight | Signal Logic                             |
+| ----------------- | ------ | ---------------------------------------- |
+| Usage Trend       | 0.45   | Trend “up” = positive, “down” = negative |
+| Ticket Load       | 0.35   | High ticket volume = penalty             |
+| Renewal Proximity | 0.20   | <60 days = risk bump                     |
 
 Output:
 
+```json
 {
   "healthScore": 82,
   "riskLevel": "low",
   "signals": ["usage_up", "few_tickets"]
 }
+```
 
+---
 
-⸻
-
-5. 🗄️ Data Model
+## 5. 🗄️ Data Model
 
 Neon DB (Drizzle)
 
-Table	Purpose
-users	Auth
-sessions	BetterAuth
-conversations	History
-messages	UI transcript
-customers	Directory metadata
+| Table         | Purpose            |
+| ------------- | ------------------ |
+| users         | Auth               |
+| sessions      | BetterAuth         |
+| conversations | History            |
+| messages      | UI transcript      |
+| customers     | Directory metadata |
 
 S3 JSON Layout
 
+```
 s3://cs-copilot-data/usage/<id>.json
 s3://cs-copilot-data/tickets/<id>.json
 s3://cs-copilot-data/contract/<id>.json
+```
 
+---
 
-⸻
+## 6. 🚨 Error Handling & Partial Results
 
-6. 🚨 Error Handling & Partial Results
+| Scenario        | Behavior                             |
+| --------------- | ------------------------------------ |
+| Tool timeout    | Mark tool error, continue plan       |
+| Bad JSON schema | Skip step, warn UI                   |
+| Missing data    | Produce result with “gaps explained” |
+| Agent failure   | Graceful assistant message           |
 
-Scenario	Behavior
-Tool timeout	Mark tool error, continue plan
-Bad JSON schema	Skip step, warn UI
-Missing data	Produce result with “gaps explained”
-Agent failure	Graceful assistant message
+---
 
+## 7. 🔎 Observability
 
-⸻
-
-7. 🔎 Observability
-
-Signal	Captured
-requestId	Correlates full run
-tool.latencyMs	Per tool SLA visibility
-riskSignals	From score engine
-errors	Structured, not raw traces
+| Signal         | Captured                   |
+| -------------- | -------------------------- |
+| requestId      | Correlates full run        |
+| tool.latencyMs | Per tool SLA visibility    |
+| riskSignals    | From score engine          |
+| errors         | Structured, not raw traces |
 
 Logs live in:
-	•	CloudWatch (backend)
-	•	Optional: DB message context (frontend)
 
-⸻
+- CloudWatch (backend)
+- Optional: DB message context (frontend)
 
-8. 🏗️ Deployment Map
+---
 
-Component	Platform
-Frontend	Vercel
-API Tools	Lambda + API Gateway
-Async	SQS
-DB	Neon
-Files	S3
+## 8. 🏗️ Deployment Map
 
+| Component | Platform             |
+| --------- | -------------------- |
+| Frontend  | Vercel               |
+| API Tools | Lambda + API Gateway |
+| Async     | SQS                  |
+| DB        | Neon                 |
+| Files     | S3                   |
 
-⸻
+---
 
-9. ✅ Summary
+## 9. ✅ Summary
 
 This architecture enables:
-	•	Low cost, stateless backend
-	•	Safe and explainable AI behaviors
-	•	Easy future integrations (Jira, Salesforce, Slack)
-	•	Strong alignment with enterprise CS workflows
 
-See: PROMPTS.md next (Agent brain) & API_CONTRACTS.md (tool schemas)
-```
+- Low cost, stateless backend
+- Safe and explainable AI behaviors
+- Easy future integrations (Jira, Salesforce, Slack)
+- Strong alignment with enterprise CS workflows
