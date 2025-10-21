@@ -19,3 +19,20 @@ ehthumbs.db
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# VSCode settings
+.vscode/
+
+# Python / backend
+backend/.venv/
+backend/**/__pycache__/
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/.coverage
+backend/.env
+
+# Env files (anywhere)
+**/.env
+**/.env.local
+**/.env.*.local
+.envrc
