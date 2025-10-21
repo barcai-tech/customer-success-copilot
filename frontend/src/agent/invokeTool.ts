@@ -1,6 +1,7 @@
 "use server";
 
 import { signHmac, nowMs } from "@/src/lib/hmac";
+import { z } from "zod";
 
 export type ToolName =
   | "get_customer_usage"
@@ -35,7 +36,11 @@ function mustEnv(name: string): string {
   return v;
 }
 
-export async function invokeTool<T = unknown>(tool: ToolName, body: EnvelopeRequest): Promise<Envelope<T>> {
+export async function invokeTool<T = unknown>(
+  tool: ToolName,
+  body: EnvelopeRequest,
+  schema?: z.ZodSchema<T>
+): Promise<Envelope<T>> {
   const base = mustEnv("BACKEND_BASE_URL");
   const secret = mustEnv("HMAC_SECRET");
   const clientId = process.env["HMAC_CLIENT_ID"] ?? "copilot-frontend";
@@ -64,6 +69,11 @@ export async function invokeTool<T = unknown>(tool: ToolName, body: EnvelopeRequ
   } catch {
     throw new Error(`Invalid JSON from tool ${tool}`);
   }
-  return json as Envelope<T>;
+  if (!schema) return json as Envelope<T>;
+  // Validate envelope with provided schema
+  const parsed = (await Envelope(schema).safeParseAsync(json));
+  if (!parsed.success) {
+    throw new Error(`Schema validation failed for ${tool}: ${parsed.error.message}`);
+  }
+  return parsed.data as Envelope<T>;
 }
-

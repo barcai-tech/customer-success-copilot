@@ -121,6 +121,26 @@ By default, tools read from `sample_data/` when `DATA_BUCKET` is not set or S3 a
 
 Offline note: If your environment blocks network installs, you can still run local invocations using the standard library only (sample data, HMAC, envelope). S3 access will be disabled and tools will fall back to `sample_data/`.
 
+### Optional: Local HTTP server for frontend
+
+Expose all tools over HTTP locally (no external deps) using the built-in dev server:
+
+```sh
+cd backend
+source .venv/bin/activate
+export HMAC_SECRET=dev-secret
+export ALLOWED_ORIGIN=http://localhost:3000
+python dev_server.py --port 8787
+```
+
+Then set in `frontend/.env.local`:
+
+```
+BACKEND_BASE_URL=http://127.0.0.1:8787
+HMAC_SECRET=your-local-hmac-secret
+HMAC_CLIENT_ID=copilot-frontend
+```
+
 ---
 
 ## Response Contract

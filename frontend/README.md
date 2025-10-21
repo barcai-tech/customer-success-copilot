@@ -1,8 +1,17 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is the Next.js frontend for the Customer Success Copilot. It calls backend tools via HMAC‑signed requests from server actions and renders planner results.
 
 ## Getting Started
 
-First, run the development server:
+Environment (server-only):
+
+```
+cp .env.example .env.local
+BACKEND_BASE_URL=http://127.0.0.1:8787
+HMAC_SECRET=<same as backend>
+HMAC_CLIENT_ID=copilot-frontend
+```
+
+Install deps and run the development server:
 
 ```bash
 npm run dev
@@ -16,7 +25,9 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Home page form submits to a server action which calls the planner: usage → tickets → contract → health → email. Results include tool timings and errors.
+
+Contracts: Zod schemas in `src/contracts/tools.ts` validate responses to surface failures.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 

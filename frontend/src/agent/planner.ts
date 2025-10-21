@@ -1,13 +1,18 @@
 "use server";
 
 import { invokeTool, Envelope } from "@/src/agent/invokeTool";
-
-type Usage = { trend: "up" | "down" | "flat"; avgDailyUsers: number; sparkline: number[] };
-type Tickets = { openTickets: number; recentTickets: Array<{ id: string; severity: string }> };
-type Contract = { renewalDate: string; arr: number };
-type Health = { score: number; riskLevel: string; signals: string[] };
-type Email = { subject: string; body: string };
-type Qbr = { sections: string[] };
+import {
+  UsageSchema,
+  TicketsSchema,
+  ContractSchema,
+  HealthSchema,
+  EmailSchema,
+  type Usage,
+  type Tickets,
+  type Contract,
+  type Health,
+  type Email,
+} from "@/src/contracts/tools";
 
 export interface PlannerResult {
   summary?: string;
@@ -43,31 +48,31 @@ export async function runPlanner(customerId: string): Promise<PlannerResult> {
 
   // usage
   try {
-    const r = await timed(() => invokeTool<Usage>("get_customer_usage", { customerId, params: { periodDays: 30 } }), "get_customer_usage", usedTools);
+    const r = await timed(() => invokeTool<Usage>("get_customer_usage", { customerId, params: { periodDays: 30 } }, UsageSchema), "get_customer_usage", usedTools);
     if (r.ok) usage = r.data;
   } catch {}
 
   // tickets
   try {
-    const r = await timed(() => invokeTool<Tickets>("get_recent_tickets", { customerId }), "get_recent_tickets", usedTools);
+    const r = await timed(() => invokeTool<Tickets>("get_recent_tickets", { customerId }, TicketsSchema), "get_recent_tickets", usedTools);
     if (r.ok) tickets = r.data;
   } catch {}
 
   // contract
   try {
-    const r = await timed(() => invokeTool<Contract>("get_contract_info", { customerId }), "get_contract_info", usedTools);
+    const r = await timed(() => invokeTool<Contract>("get_contract_info", { customerId }, ContractSchema), "get_contract_info", usedTools);
     if (r.ok) contract = r.data;
   } catch {}
 
   // health
   try {
-    const r = await timed(() => invokeTool<Health>("calculate_health", { customerId }), "calculate_health", usedTools);
+    const r = await timed(() => invokeTool<Health>("calculate_health", { customerId }, HealthSchema), "calculate_health", usedTools);
     if (r.ok) health = r.data;
   } catch {}
 
   // email
   try {
-    const r = await timed(() => invokeTool<Email>("generate_email", { customerId }), "generate_email", usedTools);
+    const r = await timed(() => invokeTool<Email>("generate_email", { customerId }, EmailSchema), "generate_email", usedTools);
     if (r.ok) email = r.data;
   } catch {}
 
@@ -91,4 +96,3 @@ export async function runPlanner(customerId: string): Promise<PlannerResult> {
     notes: !usage ? "Usage data missing." : undefined,
   };
 }
-
