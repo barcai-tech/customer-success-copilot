@@ -18,7 +18,7 @@ This folder contains an AWS SAM template to deploy all backend tools as Lambda f
 
 - `StageName` — API stage (e.g., `dev`)
 - `AllowedOrigin` — CORS allowlist origin (e.g., `https://cs-copilot.barcai-tech.com` or `http://localhost:3000` for dev)
-- `HmacSecretParam` — SSM parameter name for the HMAC secret (e.g., `/copilot/hmac/v1`)
+- `HmacParamName` — SSM Parameter name for HMAC secret (e.g., `/copilot/hmac/v1`). Store as SecureString. Lambdas fetch it at runtime.
 - `DataBucket` — Optional S3 bucket name for JSON data. Leave blank to disable S3 policy.
 
 ---
@@ -37,7 +37,7 @@ When prompted, provide:
 
 - `StageName`: dev
 - `AllowedOrigin`: http://localhost:3000 (or your frontend domain)
-- `HmacSecretParam`: /copilot/hmac/v1
+- `HmacParamName`: /copilot/hmac/v1
 - `DataBucket`: <your-bucket-or-empty>
 
 SAM writes these to `samconfig.toml` for future runs.
@@ -62,5 +62,4 @@ sam build && sam deploy
 
 - Each function sets CORS headers itself; the API also enables CORS for OPTIONS.
 - If `DataBucket` is empty, functions will use local `sample_data` fallback — not available in Lambda. Set `DataBucket` for real data.
-- HMAC secret is provided from SSM Parameter Store and must match the frontend server action signer.
-
+- Lambdas fetch HMAC from SSM via `HMAC_PARAM_NAME`. Ensure the execution role has `ssm:GetParameter` permission for that parameter. If the parameter uses a customer-managed KMS key, grant decrypt permissions as needed.

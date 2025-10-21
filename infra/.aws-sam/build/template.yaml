@@ -1,0 +1,189 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Customer Success Copilot - Backend Tools (API Gateway + Lambda)
+Parameters:
+  StageName:
+    Type: String
+    Default: dev
+  AllowedOrigin:
+    Type: String
+    Default: http://localhost:3000
+  HmacSecretParam:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /copilot/hmac/v1
+  DataBucket:
+    Type: String
+    Default: ''
+Conditions:
+  HasDataBucket:
+    Fn::Not:
+    - Fn::Equals:
+      - Ref: DataBucket
+      - ''
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 256
+    CodeUri: ../backend
+    Environment:
+      Variables:
+        ALLOWED_ORIGIN:
+          Ref: AllowedOrigin
+        HMAC_SECRET:
+          Ref: HmacSecretParam
+        DATA_BUCKET:
+          Fn::If:
+          - HasDataBucket
+          - Ref: DataBucket
+          - ''
+Resources:
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName:
+        Ref: StageName
+      Cors:
+        AllowMethods: '''POST,OPTIONS'''
+        AllowHeaders: '''Content-Type,X-Signature,X-Timestamp,X-Client'''
+        AllowOrigin:
+          Fn::Sub: '''${AllowedOrigin}'''
+  GetCustomerUsage:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/get_customer_usage/handler.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Api
+            Path: /get_customer_usage
+            Method: post
+      Policies:
+      - Fn::If:
+        - HasDataBucket
+        - Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            Resource:
+              Fn::Sub: arn:aws:s3:::${DataBucket}/*
+        - Ref: AWS::NoValue
+      CodeUri: GetCustomerUsage
+    Metadata:
+      SamResourceId: GetCustomerUsage
+  GetRecentTickets:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/get_recent_tickets/handler.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Api
+            Path: /get_recent_tickets
+            Method: post
+      Policies:
+      - Fn::If:
+        - HasDataBucket
+        - Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            Resource:
+              Fn::Sub: arn:aws:s3:::${DataBucket}/*
+        - Ref: AWS::NoValue
+      CodeUri: GetRecentTickets
+    Metadata:
+      SamResourceId: GetRecentTickets
+  GetContractInfo:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/get_contract_info/handler.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Api
+            Path: /get_contract_info
+            Method: post
+      Policies:
+      - Fn::If:
+        - HasDataBucket
+        - Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            Resource:
+              Fn::Sub: arn:aws:s3:::${DataBucket}/*
+        - Ref: AWS::NoValue
+      CodeUri: GetContractInfo
+    Metadata:
+      SamResourceId: GetContractInfo
+  CalculateHealth:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/calculate_health/handler.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Api
+            Path: /calculate_health
+            Method: post
+      Policies:
+      - Fn::If:
+        - HasDataBucket
+        - Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - s3:GetObject
+            Resource:
+              Fn::Sub: arn:aws:s3:::${DataBucket}/*
+        - Ref: AWS::NoValue
+      CodeUri: CalculateHealth
+    Metadata:
+      SamResourceId: CalculateHealth
+  GenerateEmail:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/generate_email/handler.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Api
+            Path: /generate_email
+            Method: post
+      CodeUri: GenerateEmail
+    Metadata:
+      SamResourceId: GenerateEmail
+  GenerateQbrOutline:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/generate_qbr_outline/handler.handler
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId:
+              Ref: Api
+            Path: /generate_qbr_outline
+            Method: post
+      CodeUri: GenerateQbrOutline
+    Metadata:
+      SamResourceId: GenerateQbrOutline
+Outputs:
+  ApiUrl:
+    Description: API base URL
+    Value:
+      Fn::Sub: https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}
