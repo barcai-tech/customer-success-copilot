@@ -36,3 +36,15 @@ backend/.env
 **/.env.local
 **/.env.*.local
 .envrc
+
+# Frontend / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/coverage/
+frontend/build/
+frontend/.pnp
+frontend/.pnp.*
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
