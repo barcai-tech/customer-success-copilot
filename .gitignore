@@ -48,3 +48,6 @@ frontend/.pnp
 frontend/.pnp.*
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
+
+# SAM build artifacts
+infra/.aws-sam/

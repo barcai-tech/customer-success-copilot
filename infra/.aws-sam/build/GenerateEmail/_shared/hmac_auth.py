@@ -2,7 +2,12 @@ import hashlib
 import hmac
 import os
 import time
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional
+
+try:
+    import boto3  # type: ignore
+except Exception:  # boto3 not required for local dev
+    boto3 = None
 
 
 MAX_SKEW_MS = 5 * 60 * 1000  # 5 minutes
@@ -19,10 +24,38 @@ def _get_header(headers: Dict[str, str], name: str) -> str:
     return val
 
 
+_SECRET_CACHE: Optional[str] = None
+
+
 def sign(secret: str, timestamp_ms: str, client_id: str, raw_body: str) -> str:
     message = f"{timestamp_ms}.{client_id}.{raw_body}".encode("utf-8")
     mac = hmac.new(secret.encode("utf-8"), message, hashlib.sha256)
     return mac.hexdigest()
+
+
+def _load_secret() -> str:
+    global _SECRET_CACHE
+    if _SECRET_CACHE:
+        return _SECRET_CACHE
+
+    # Prefer explicit env for local dev
+    secret = os.environ.get("HMAC_SECRET")
+    if secret:
+        _SECRET_CACHE = secret
+        return secret
+
+    # Fallback: fetch from SSM if HMAC_PARAM_NAME is provided
+    param_name = os.environ.get("HMAC_PARAM_NAME")
+    if param_name and boto3:
+        ssm = boto3.client("ssm")
+        resp = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        value = resp.get("Parameter", {}).get("Value")
+        if not value:
+            raise ValueError("Server misconfigured: empty HMAC in SSM parameter")
+        _SECRET_CACHE = value
+        return value
+
+    raise ValueError("Server misconfigured: HMAC secret not set (HMAC_SECRET or HMAC_PARAM_NAME)")
 
 
 def verify_headers(headers: Dict[str, str], raw_body: str) -> Tuple[str, str]:
@@ -30,9 +63,7 @@ def verify_headers(headers: Dict[str, str], raw_body: str) -> Tuple[str, str]:
     timestamp = _get_header(headers, "X-Timestamp")
     client = _get_header(headers, "X-Client")
 
-    secret = os.environ.get("HMAC_SECRET")
-    if not secret:
-        raise ValueError("Server misconfigured: HMAC_SECRET not set")
+    secret = _load_secret()
 
     try:
         ts = int(timestamp)
@@ -54,4 +85,3 @@ def require_hmac(event: Dict) -> Tuple[str, str]:
     body = event.get("body") or ""
     headers = event.get("headers") or {}
     return verify_headers(headers, body)
-

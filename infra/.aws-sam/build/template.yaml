@@ -8,9 +8,10 @@ Parameters:
   AllowedOrigin:
     Type: String
     Default: http://localhost:3000
-  HmacSecretParam:
-    Type: AWS::SSM::Parameter::Value<String>
+  HmacParamName:
+    Type: String
     Default: /copilot/hmac/v1
+    Description: SSM Parameter name for HMAC secret (SecureString recommended)
   DataBucket:
     Type: String
     Default: ''
@@ -30,8 +31,8 @@ Globals:
       Variables:
         ALLOWED_ORIGIN:
           Ref: AllowedOrigin
-        HMAC_SECRET:
-          Ref: HmacSecretParam
+        HMAC_PARAM_NAME:
+          Ref: HmacParamName
         DATA_BUCKET:
           Fn::If:
           - HasDataBucket
@@ -61,6 +62,13 @@ Resources:
             Path: /get_customer_usage
             Method: post
       Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:GetParameter
+          Resource:
+            Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}
       - Fn::If:
         - HasDataBucket
         - Version: '2012-10-17'
@@ -87,6 +95,13 @@ Resources:
             Path: /get_recent_tickets
             Method: post
       Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:GetParameter
+          Resource:
+            Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}
       - Fn::If:
         - HasDataBucket
         - Version: '2012-10-17'
@@ -113,6 +128,13 @@ Resources:
             Path: /get_contract_info
             Method: post
       Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:GetParameter
+          Resource:
+            Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}
       - Fn::If:
         - HasDataBucket
         - Version: '2012-10-17'
@@ -139,6 +161,13 @@ Resources:
             Path: /calculate_health
             Method: post
       Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:GetParameter
+          Resource:
+            Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}
       - Fn::If:
         - HasDataBucket
         - Version: '2012-10-17'
@@ -164,6 +193,14 @@ Resources:
               Ref: Api
             Path: /generate_email
             Method: post
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:GetParameter
+          Resource:
+            Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}
       CodeUri: GenerateEmail
     Metadata:
       SamResourceId: GenerateEmail
@@ -179,6 +216,14 @@ Resources:
               Ref: Api
             Path: /generate_qbr_outline
             Method: post
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - ssm:GetParameter
+          Resource:
+            Fn::Sub: arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}
       CodeUri: GenerateQbrOutline
     Metadata:
       SamResourceId: GenerateQbrOutline

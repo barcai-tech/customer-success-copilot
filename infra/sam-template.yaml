@@ -33,6 +33,15 @@ Globals:
         DATA_BUCKET: !If [HasDataBucket, !Ref DataBucket, '']
 
 Resources:
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: cs-copilot-common
+      Description: Shared Python utilities (_shared)
+      ContentUri: ./layers/common
+      CompatibleRuntimes:
+        - python3.12
+      RetentionPolicy: Retain
   Api:
     Type: AWS::Serverless::Api
     Properties:
@@ -46,6 +55,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: tools/get_customer_usage/handler.handler
+      Layers:
+        - !Ref CommonLayer
       Events:
         ApiEvent:
           Type: Api
@@ -72,6 +83,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: tools/get_recent_tickets/handler.handler
+      Layers:
+        - !Ref CommonLayer
       Events:
         ApiEvent:
           Type: Api
@@ -98,6 +111,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: tools/get_contract_info/handler.handler
+      Layers:
+        - !Ref CommonLayer
       Events:
         ApiEvent:
           Type: Api
@@ -124,6 +139,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: tools/calculate_health/handler.handler
+      Layers:
+        - !Ref CommonLayer
       Events:
         ApiEvent:
           Type: Api
@@ -150,6 +167,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: tools/generate_email/handler.handler
+      Layers:
+        - !Ref CommonLayer
       Events:
         ApiEvent:
           Type: Api
@@ -168,6 +187,8 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       Handler: tools/generate_qbr_outline/handler.handler
+      Layers:
+        - !Ref CommonLayer
       Events:
         ApiEvent:
           Type: Api
