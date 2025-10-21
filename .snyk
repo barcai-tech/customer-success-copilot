@@ -1,0 +1,15 @@
+version: v1.29.0
+
+# Policy file for Snyk (Open Source / IaC). For Snyk Code, use .dcignore.
+
+ignore: {}
+patch: {}
+
+exclude:
+  directories:
+    - infra/.aws-sam
+    - frontend/node_modules
+    - frontend/.next
+    - frontend/out
+    - backend/.venv
+

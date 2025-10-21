@@ -6,20 +6,23 @@ import time
 
 from _shared.hmac_auth import sign
 
+# Import handlers statically to avoid dynamic import patterns flagged by linters/scanners.
+from tools.get_customer_usage.handler import handler as get_customer_usage_handler  # noqa: E402
+from tools.get_recent_tickets.handler import handler as get_recent_tickets_handler  # noqa: E402
+from tools.get_contract_info.handler import handler as get_contract_info_handler  # noqa: E402
+from tools.calculate_health.handler import handler as calculate_health_handler  # noqa: E402
+from tools.generate_email.handler import handler as generate_email_handler  # noqa: E402
+from tools.generate_qbr_outline.handler import handler as generate_qbr_outline_handler  # noqa: E402
+
 
 TOOLS = {
-    "get_customer_usage": "tools.get_customer_usage.handler",
-    "get_recent_tickets": "tools.get_recent_tickets.handler",
-    "get_contract_info": "tools.get_contract_info.handler",
-    "calculate_health": "tools.calculate_health.handler",
-    "generate_email": "tools.generate_email.handler",
-    "generate_qbr_outline": "tools.generate_qbr_outline.handler",
+    "get_customer_usage": get_customer_usage_handler,
+    "get_recent_tickets": get_recent_tickets_handler,
+    "get_contract_info": get_contract_info_handler,
+    "calculate_health": calculate_health_handler,
+    "generate_email": generate_email_handler,
+    "generate_qbr_outline": generate_qbr_outline_handler,
 }
-
-
-def load_handler(module_path: str):
-    mod = __import__(module_path, fromlist=["handler"])
-    return getattr(mod, "handler")
 
 
 def main():
@@ -47,8 +50,8 @@ def main():
         "headers": {"X-Signature": sig, "X-Timestamp": ts, "X-Client": args.client},
     }
 
-    handler = load_handler(TOOLS[args.tool])
-    resp = handler(event, None)
+    fn = TOOLS[args.tool]
+    resp = fn(event, None)
     print(json.dumps(resp, indent=2))
 
 

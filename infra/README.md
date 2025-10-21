@@ -63,3 +63,26 @@ sam build && sam deploy
 - Each function sets CORS headers itself; the API also enables CORS for OPTIONS.
 - If `DataBucket` is empty, functions will use local `sample_data` fallback — not available in Lambda. Set `DataBucket` for real data.
 - Lambdas fetch HMAC from SSM via `HMAC_PARAM_NAME`. Ensure the execution role has `ssm:GetParameter` permission for that parameter. If the parameter uses a customer-managed KMS key, grant decrypt permissions as needed.
+
+---
+
+## Makefile Shortcuts
+
+From `infra/` you can use:
+
+```sh
+# Build and deploy with defaults in Makefile
+make build              # or: make buildc (container build)
+make deploy PROFILE=cs-copilot REGION=ap-southeast-1
+
+# Sync sample data to S3
+make sync-sample PROFILE=cs-copilot REGION=ap-southeast-1 DATA_BUCKET=barcai-cs-success-copilot
+```
+
+Variables:
+
+- `PROFILE` — AWS CLI profile (default `cs-copilot`)
+- `STACK` — Stack name (default `cs-copilot-backend`)
+- `REGION` — Region (default `ap-southeast-1`)
+- `TEMPLATE` — SAM template (default `sam-template.yaml`)
+- `DATA_BUCKET` — Required for `sync-sample`

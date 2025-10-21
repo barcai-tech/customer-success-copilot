@@ -182,6 +182,14 @@ Resources:
             - Effect: Allow
               Action: ['ssm:GetParameter']
               Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}'
+        - !If
+          - HasDataBucket
+          - Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ['s3:GetObject']
+                Resource: !Sub 'arn:aws:s3:::${DataBucket}/*'
+          - !Ref 'AWS::NoValue'
 
   GenerateQbrOutline:
     Type: AWS::Serverless::Function
@@ -202,6 +210,14 @@ Resources:
             - Effect: Allow
               Action: ['ssm:GetParameter']
               Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}'
+        - !If
+          - HasDataBucket
+          - Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ['s3:GetObject']
+                Resource: !Sub 'arn:aws:s3:::${DataBucket}/*'
+          - !Ref 'AWS::NoValue'
 
 Outputs:
   ApiUrl:
