@@ -2,6 +2,7 @@
 
 import { signHmac, nowMs } from "@/src/lib/hmac";
 import { z } from "zod";
+import { Envelope as EnvelopeSchema } from "@/src/contracts/tools";
 
 export type ToolName =
   | "get_customer_usage"
@@ -28,7 +29,7 @@ export interface EnvelopeError {
   error: { code: string; message: string };
 }
 
-export type Envelope<T> = EnvelopeSuccess<T> | EnvelopeError;
+export type ResponseEnvelope<T> = EnvelopeSuccess<T> | EnvelopeError;
 
 function mustEnv(name: string): string {
   const v = process.env[name];
@@ -40,7 +41,7 @@ export async function invokeTool<T = unknown>(
   tool: ToolName,
   body: EnvelopeRequest,
   schema?: z.ZodSchema<T>
-): Promise<Envelope<T>> {
+): Promise<ResponseEnvelope<T>> {
   const base = mustEnv("BACKEND_BASE_URL");
   const secret = mustEnv("HMAC_SECRET");
   const clientId = process.env["HMAC_CLIENT_ID"] ?? "copilot-frontend";
@@ -69,11 +70,11 @@ export async function invokeTool<T = unknown>(
   } catch {
     throw new Error(`Invalid JSON from tool ${tool}`);
   }
-  if (!schema) return json as Envelope<T>;
+  if (!schema) return json as ResponseEnvelope<T>;
   // Validate envelope with provided schema
-  const parsed = (await Envelope(schema).safeParseAsync(json));
+  const parsed = await EnvelopeSchema(schema).safeParseAsync(json);
   if (!parsed.success) {
     throw new Error(`Schema validation failed for ${tool}: ${parsed.error.message}`);
   }
-  return parsed.data as Envelope<T>;
+  return parsed.data as ResponseEnvelope<T>;
 }

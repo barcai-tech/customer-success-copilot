@@ -42,11 +42,7 @@ function Results({ result }: { result: NonNullable<PlannerActionState> extends {
         </div>
       )}
       {result.emailDraft && (
-        <div className="text-sm">
-          <div className="font-medium">Email Draft</div>
-          <div className="italic">{result.emailDraft.subject}</div>
-          <pre className="whitespace-pre-wrap text-xs mt-1 p-2 bg-gray-50 border rounded">{result.emailDraft.body}</pre>
-        </div>
+        <EmailDraft subject={result.emailDraft.subject} body={result.emailDraft.body} />
       )}
       <div className="text-sm">
         <div className="font-medium">Used Tools</div>
@@ -61,3 +57,36 @@ function Results({ result }: { result: NonNullable<PlannerActionState> extends {
   );
 }
 
+function EmailDraft({ subject, body }: { subject: string; body: string }) {
+  return (
+    <div className="text-sm">
+      <div className="flex items-center gap-3">
+        <div className="font-medium">Email Draft</div>
+        <CopyButton text={`${subject}\n\n${body}`} label="Copy All" />
+        <CopyButton text={body} label="Copy Body" />
+      </div>
+      <div className="italic mt-1">{subject}</div>
+      <pre className="whitespace-pre-wrap text-[13px] leading-5 mt-2 p-3 rounded border bg-white text-black dark:bg-neutral-900 dark:text-neutral-100 dark:border-neutral-700">
+        {body}
+      </pre>
+    </div>
+  );
+}
+
+function CopyButton({ text, label }: { text: string; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch {
+          // no-op
+        }
+      }}
+      className="text-xs px-2 py-1 border rounded hover:bg-gray-50 dark:hover:bg-neutral-800"
+    >
+      {label}
+    </button>
+  );
+}

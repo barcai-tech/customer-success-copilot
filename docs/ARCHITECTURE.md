@@ -219,3 +219,19 @@ This architecture enables:
 - Safe and explainable AI behaviors
 - Easy future integrations (Jira, Salesforce, Slack)
 - Strong alignment with enterprise CS workflows
+
+---
+
+## 🔧 Deploy to AWS (via SAM)
+
+See `infra/README.md` and `infra/sam-template.yaml`.
+
+Summary:
+
+- Create an SSM Parameter for your HMAC secret (e.g., `/copilot/hmac/v1`).
+- `cd infra && sam build && sam deploy --guided` and provide:
+  - StageName (dev)
+  - AllowedOrigin (your frontend URL)
+  - HmacSecretParam (SSM name)
+  - DataBucket (optional S3 bucket name)
+- Use the output `ApiUrl` as `BACKEND_BASE_URL` in the frontend `.env.local`.

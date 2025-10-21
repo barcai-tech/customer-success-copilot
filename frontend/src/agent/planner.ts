@@ -1,6 +1,6 @@
 "use server";
 
-import { invokeTool, Envelope } from "@/src/agent/invokeTool";
+import { invokeTool, type ResponseEnvelope } from "@/src/agent/invokeTool";
 import {
   UsageSchema,
   TicketsSchema,
@@ -23,7 +23,7 @@ export interface PlannerResult {
   notes?: string;
 }
 
-async function timed<T>(fn: () => Promise<Envelope<T>>, name: string, used: PlannerResult["usedTools"]) {
+async function timed<T>(fn: () => Promise<ResponseEnvelope<T>>, name: string, used: PlannerResult["usedTools"]) {
   const t0 = performance.now();
   try {
     const out = await fn();
