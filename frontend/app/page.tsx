@@ -1,11 +1,9 @@
-import PlannerForm from "@/src/components/PlannerForm";
+import { CopilotDashboard } from "@/src/components/copilot/CopilotDashboard";
 
 export default function Home() {
   return (
-    <main className="max-w-3xl mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-4">Customer Success Copilot</h1>
-      <PlannerForm />
-      <p className="text-sm text-gray-500 mt-6">Configure BACKEND_BASE_URL and HMAC_SECRET in frontend/.env.local (server-side only).</p>
-    </main>
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <CopilotDashboard />
+    </div>
   );
 }

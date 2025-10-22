@@ -1,11 +1,14 @@
 export default function Footer() {
+  const year = new Date().getFullYear();
+
   return (
-    <footer className="w-full border-t mt-10">
-      <div className="max-w-5xl mx-auto px-4 py-6 text-xs text-muted-foreground flex items-center justify-between">
-        <p>© {new Date().getFullYear()} Barcai Technology</p>
-        <p className="opacity-80">Demo • Customer Success Copilot</p>
+    <footer className="py-8 border-t border-slate-200/60 dark:border-slate-800/60">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-sm text-slate-600 dark:text-slate-400 text-center">
+        <p>
+          © {year} Customer Success Copilot by Barcai Technology. All rights
+          reserved.
+        </p>
       </div>
     </footer>
   );
 }
-

@@ -1,20 +1,56 @@
 "use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
-import ThemeSelect from "@/src/components/ThemeSelect";
+import { Button } from "@/src/components/ui/button";
+import { Menu, TrendingUp } from "lucide-react";
+import PageContainer from "@/src/components/PageContainer";
+import { NavMenu } from "@/src/components/NavMenu";
+import MobileMenu from "@/src/components/MobileMenu";
+import { ModeToggle } from "@/src/components/ModeToggle";
 
 export default function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
-    <header className="w-full border-b bg-card/80 supports-[backdrop-filter]:backdrop-blur-sm">
-      <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-semibold tracking-tight">
-          <span className="text-primary">Customer Success</span> Copilot
+    <header className="sticky top-0 z-50 backdrop-blur bg-background/75 border-b border-slate-200/60 dark:border-slate-800/60">
+      <PageContainer className="h-16 flex items-center justify-between">
+        {/* Mobile Menu Button */}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setMenuOpen(true)}
+          className="flex items-center sm:hidden text-xl"
+          aria-label="Open menu"
+        >
+          <Menu />
+        </Button>
+
+        {/* Logo */}
+        <Link
+          href="/"
+          className="flex items-center gap-2 font-semibold text-lg"
+        >
+          <TrendingUp className="h-6 w-6 text-primary" />
+          <span className="hidden sm:inline">Customer Success Copilot</span>
         </Link>
-        <nav className="flex items-center gap-3 text-sm">
-          <Link href="/" className="hover:underline">Home</Link>
-          <Link href="/docs" className="hover:underline">Docs</Link>
-          <ThemeSelect />
-        </nav>
-      </div>
+
+        {/* Desktop Nav */}
+        <div className="hidden sm:flex items-center space-x-4">
+          <NavMenu />
+          <ModeToggle />
+        </div>
+
+        {/* Mobile Mode Toggle (visible on small screens) */}
+        <div className="sm:hidden">
+          <ModeToggle />
+        </div>
+
+        {/* Mobile Menu */}
+        {menuOpen && (
+          <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
+        )}
+      </PageContainer>
     </header>
   );
 }
