@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Customer Success Copilot - Backend Tools (API Gateway + Lambda)
 
@@ -15,10 +15,10 @@ Parameters:
     Description: "SSM Parameter name for HMAC secret (SecureString recommended)"
   DataBucket:
     Type: String
-    Default: ''
+    Default: ""
 
 Conditions:
-  HasDataBucket: !Not [!Equals [!Ref DataBucket, '']]
+  HasDataBucket: !Not [!Equals [!Ref DataBucket, ""]]
 
 Globals:
   Function:
@@ -30,7 +30,8 @@ Globals:
       Variables:
         ALLOWED_ORIGIN: !Ref AllowedOrigin
         HMAC_PARAM_NAME: !Ref HmacParamName
-        DATA_BUCKET: !If [HasDataBucket, !Ref DataBucket, '']
+        HMAC_SECRET: ""
+        DATA_BUCKET: !If [HasDataBucket, !Ref DataBucket, ""]
 
 Resources:
   CommonLayer:
@@ -65,19 +66,19 @@ Resources:
             Path: /get_customer_usage
             Method: post
       Policies:
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
-              Action: ['ssm:GetParameter']
-              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}'
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
         - !If
           - HasDataBucket
-          - Version: '2012-10-17'
+          - Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: ['s3:GetObject']
-                Resource: !Sub 'arn:aws:s3:::${DataBucket}/*'
-          - !Ref 'AWS::NoValue'
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
 
   GetRecentTickets:
     Type: AWS::Serverless::Function
@@ -93,19 +94,19 @@ Resources:
             Path: /get_recent_tickets
             Method: post
       Policies:
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
-              Action: ['ssm:GetParameter']
-              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}'
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
         - !If
           - HasDataBucket
-          - Version: '2012-10-17'
+          - Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: ['s3:GetObject']
-                Resource: !Sub 'arn:aws:s3:::${DataBucket}/*'
-          - !Ref 'AWS::NoValue'
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
 
   GetContractInfo:
     Type: AWS::Serverless::Function
@@ -121,19 +122,19 @@ Resources:
             Path: /get_contract_info
             Method: post
       Policies:
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
-              Action: ['ssm:GetParameter']
-              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}'
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
         - !If
           - HasDataBucket
-          - Version: '2012-10-17'
+          - Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: ['s3:GetObject']
-                Resource: !Sub 'arn:aws:s3:::${DataBucket}/*'
-          - !Ref 'AWS::NoValue'
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
 
   CalculateHealth:
     Type: AWS::Serverless::Function
@@ -149,19 +150,19 @@ Resources:
             Path: /calculate_health
             Method: post
       Policies:
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
-              Action: ['ssm:GetParameter']
-              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}'
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
         - !If
           - HasDataBucket
-          - Version: '2012-10-17'
+          - Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: ['s3:GetObject']
-                Resource: !Sub 'arn:aws:s3:::${DataBucket}/*'
-          - !Ref 'AWS::NoValue'
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
 
   GenerateEmail:
     Type: AWS::Serverless::Function
@@ -177,19 +178,19 @@ Resources:
             Path: /generate_email
             Method: post
       Policies:
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
-              Action: ['ssm:GetParameter']
-              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}'
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
         - !If
           - HasDataBucket
-          - Version: '2012-10-17'
+          - Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: ['s3:GetObject']
-                Resource: !Sub 'arn:aws:s3:::${DataBucket}/*'
-          - !Ref 'AWS::NoValue'
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
 
   GenerateQbrOutline:
     Type: AWS::Serverless::Function
@@ -205,21 +206,21 @@ Resources:
             Path: /generate_qbr_outline
             Method: post
       Policies:
-        - Version: '2012-10-17'
+        - Version: "2012-10-17"
           Statement:
             - Effect: Allow
-              Action: ['ssm:GetParameter']
-              Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}'
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
         - !If
           - HasDataBucket
-          - Version: '2012-10-17'
+          - Version: "2012-10-17"
             Statement:
               - Effect: Allow
-                Action: ['s3:GetObject']
-                Resource: !Sub 'arn:aws:s3:::${DataBucket}/*'
-          - !Ref 'AWS::NoValue'
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
 
 Outputs:
   ApiUrl:
     Description: API base URL
-    Value: !Sub 'https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}'
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"

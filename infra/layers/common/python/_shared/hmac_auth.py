@@ -3,6 +3,8 @@ import hmac
 import os
 import time
 from typing import Dict, Tuple, Optional
+import json
+import base64
 
 try:
     import boto3  # type: ignore
@@ -62,14 +64,26 @@ def verify_headers(headers: Dict[str, str], raw_body: str) -> Tuple[str, str]:
     now_ms = int(time.time() * 1000)
     if abs(now_ms - ts) > MAX_SKEW_MS:
         raise ValueError("Expired or future timestamp")
-    expected = sign(secret, timestamp, client, raw_body or "")
+    body_for_signing = raw_body or ""
+    expected = sign(secret, timestamp, client, body_for_signing)
     if not hmac.compare_digest(expected, signature):
-        raise ValueError("Invalid signature")
+        try:
+            parsed = json.loads(body_for_signing)
+            canonical = json.dumps(parsed, separators=(",", ":"), ensure_ascii=False)
+            expected2 = sign(secret, timestamp, client, canonical)
+            if not hmac.compare_digest(expected2, signature):
+                raise ValueError("Invalid signature")
+        except Exception:
+            raise ValueError("Invalid signature")
     return client, timestamp
 
 
 def require_hmac(event: Dict) -> Tuple[str, str]:
     body = event.get("body") or ""
+    if event.get("isBase64Encoded") and body:
+        try:
+            body = base64.b64decode(body).decode("utf-8")
+        except Exception:
+            pass
     headers = event.get("headers") or {}
     return verify_headers(headers, body)
-

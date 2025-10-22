@@ -51,3 +51,7 @@ frontend/next-env.d.ts
 
 # SAM build artifacts
 infra/.aws-sam/
+
+# Docs archives
+docs/*.zip
+docs/**/*.zip
