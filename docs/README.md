@@ -57,6 +57,38 @@ Before merging, verify:
 
 ---
 
+## 🎯 Product Scope (Demo)
+
+The Copilot helps CS/TAM roles with:
+
+- QBR preparation (outline + key insights)
+- Renewal brief (health, risks, recommended next steps, email draft)
+- Churn‑risk review (signals and mitigation actions)
+- Upsell/Cross‑sell prompts (based on usage and support context)
+
+Outputs follow a structured schema so content is copy‑ready and traceable to tool provenance.
+
+---
+
+## 🎨 UI/UX Alignment
+
+We align with the Barcai portfolio site theme for consistency:
+
+- Primary brand: `#2f6ee6`
+- Light background `#ffffff`, foreground `#1e293b`
+- Dark sidebar palette (optional): background `#1e293b`, accent `#5a9bff`
+- Radius ≈ `0.55rem` and subtle elevation
+
+Implementation notes:
+
+- Tailwind v4 + CSS tokens (inline `@theme` is acceptable)
+- Radix primitives + shadcn/ui style patterns
+- Keep results scannable; surface per‑tool timings and errors
+
+This is a demo: keep the stack simple, avoid CI/CD over‑engineering.
+
+---
+
 ## 🔐 Security Expectations
 
 - Server actions only for secrets

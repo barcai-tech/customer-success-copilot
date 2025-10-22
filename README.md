@@ -1,6 +1,8 @@
 # Customer Success Copilot
 
-**Customer Success Copilot** is a friendly, agentic AI assistant for Customer Success Managers (CSMs). It executes multi-step workflows (not just chat) by calling backend “tools” (AWS Lambda microservices), analyzing customer metrics, producing structured insights (like health scores and renewal risks), and preparing actionable assets (like renewal emails or QBR outlines).
+Customer Success Copilot is an agentic assistant that helps Customer Success Managers and Technical Account Managers plan and execute day‑to‑day work — preparing QBRs, mitigating churn risk, planning renewals, suggesting upsell/cross‑sell motions, and summarizing customer metrics.
+
+Unlike a simple chat UI, the Copilot plans multi‑step workflows and calls backend tools (AWS Lambda) to fetch data and create assets, then returns a structured result you can act on (summary, health, actions, email draft, QBR outline).
 
 This project is intentionally designed to demonstrate:
 - **Agentic AI planning** (multi-step tool calls, not just prompting)
@@ -11,13 +13,13 @@ This project is intentionally designed to demonstrate:
 
 ---
 
-## 🌟 Features
+## 🌟 What It Does
 
 | Category | Features |
 |-----------|----------|
-| **AI/Agent** | Multi-step planning, tool calling, partial result handling |
-| **Insights** | Usage summary, ticket analysis, health score, renewal risk |
-| **Assets** | Follow-up email draft, renewal draft, QBR outline |
+| **AI/Agent** | Multi‑step planning with tool calling and partial‑safe results |
+| **Insights** | Usage summary, ticket analysis, health, churn signals, renewal risk |
+| **Assets** | Follow‑up email, renewal prep email, QBR outline |
 | **Data** | S3 for customer metrics, Neon for auth/session/history |
 | **Security** | HMAC signing, BetterAuth, CORS, Zod validation, PII controls |
 | **Frontend** | shadcn/ui, TanStack table, Zustand, server actions |
@@ -60,17 +62,14 @@ This project is intentionally designed to demonstrate:
 
 ---
 
-## ✅ Acceptance Criteria
+## ✅ Demo Goals (Acceptance)
 
 A user can:
-1. Log in
-2. Select an LLM model
-3. Ask: _“Prepare a renewal brief for Acme Corp.”_
-4. See the agent:
-   - plan steps
-   - call 3–5 tools
-   - produce a structured briefing + email draft
-   - display tool provenance and timings
+1) Choose a customer (e.g., `acme-001`) and a task template (QBR, Renewal Brief, Churn‑risk Check)
+2) Run the Copilot and see:
+   - Planned steps and called tools (provenance + timings)
+   - Structured result: summary, health, actions, email/QBR outline
+3) Copy email/QBR content and next steps
 
 ---
 
@@ -88,9 +87,35 @@ cd backend
 # see backend README for deploy instructions
 ```
 
+Tip: You can verify the deployed backend without the frontend using the Node smoke test:
+
+```sh
+cd infra
+make smoke-node API_URL=<api-url-with-stage> \
+  HMAC_SECRET=<same-secret-as-SSM> CUSTOMER_ID=acme-001
+```
+
 ---
 
 ## 📜 License & Ownership
 
 Owned by **Barcai Technology**.  
 For portfolio/demo use. Replace model and API keys with your own.
+
+---
+
+## 🎨 UI/UX Guidelines (Demo)
+
+To keep the Copilot consistent with the Barcai portfolio site, we adopt the same Tailwind v4 color tokens and rounded radii from the site’s `globals.css`:
+
+- Primary: `#2f6ee6`
+- Background/Foreground: light background `#ffffff`, dark foreground `#1e293b`
+- Sidebar (dark): `#1e293b` with accent `#5a9bff`
+- Radius: `~0.55rem` (medium rounding), subtle elevation shadows
+
+Conventions:
+- Dark mode supported via `.dark` class
+- Use shadcn/ui + Radix primitives, lucide icons
+- Keep result sections scannable: Summary, Health, Actions, Email/QBR, Used Tools
+
+This is a demo app; we prioritize clarity and speed over exhaustive production hardening.

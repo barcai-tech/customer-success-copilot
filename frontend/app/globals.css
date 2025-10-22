@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
-:root {
+@custom-variant dark (&:is(.dark *));
+
+/* Brand tokens aligned with barcai-tech.com */
+@theme inline {
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-geist-mono);
+
+  /* Light theme vars */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #1e293b;
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --primary: #2f6ee6;
+  --primary-foreground: #ffffff;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --border: #e2e8f0;
+
+  /* Sidebar (optional) */
+  --sidebar: #1e293b;
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-accent: #334155;
+  --sidebar-accent-foreground: #5a9bff;
+
+  --radius: 0.55rem;
 }
 
+/* Map tokens for Tailwind v4 color system */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Dark mode via .dark on <html> */
+.dark {
+  --background: #0b1220; /* deep slate */
+  --foreground: #e2e8f0;
+  --card: #0f172a;
+  --card-foreground: #e2e8f0;
+  --primary: #5a9bff;
+  --primary-foreground: #0f172a;
+  --muted: #0f172a;
+  --muted-foreground: #94a3b8;
+  --border: #1f2a44;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground font-sans; font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+  a { @apply text-primary; }
+  h1 { @apply font-bold tracking-tight text-3xl sm:text-4xl md:text-5xl; }
+  h2 { @apply font-semibold tracking-tight text-2xl sm:text-3xl; }
+  h3 { @apply font-semibold tracking-tight text-xl sm:text-2xl; }
+  h4 { @apply font-medium text-lg; }
 }
