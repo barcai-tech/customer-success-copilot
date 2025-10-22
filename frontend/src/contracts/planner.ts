@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { EmailSchema, HealthSchema } from "@/src/contracts/tools";
+import { HealthSchema } from "@/src/contracts/tools";
 
 export const PlannerResultSchema = z.object({
   summary: z.string().optional(),

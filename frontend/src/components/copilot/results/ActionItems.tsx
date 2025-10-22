@@ -36,7 +36,7 @@ export function ActionItems({ summary, actions, notes }: ActionItemsProps) {
                 key={index}
                 className="flex items-start gap-3 text-sm text-foreground"
               >
-                <span className="flex-shrink-0 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">
+                <span className="shrink-0 flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">
                   {index + 1}
                 </span>
                 <span className="pt-0.5">{action}</span>

@@ -48,7 +48,7 @@ export async function runCopilotFromPromptAction(
 
   try {
     const result = await runPlanner(customerId, task);
-    if (task) (result as any).task = task;
+    if (task) result.task = task;
     result.planSource = "heuristic";
     return { ok: true, result };
   } catch (e) {

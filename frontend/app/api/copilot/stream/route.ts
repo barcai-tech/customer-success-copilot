@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { parseIntent } from "@/src/agent/intent";
 import { getToolRegistry } from "@/src/agent/tool-registry";
 import { callLLM, type LlmMessage } from "@/src/llm/provider";
-import { invokeTool, type ToolName } from "@/src/agent/invokeTool";
+import { invokeTool, type ToolName, type ResponseEnvelope, type EnvelopeSuccess } from "@/src/agent/invokeTool";
 import type { z } from "zod";
 import {
   UsageSchema,
@@ -11,10 +11,24 @@ import {
   HealthSchema,
   EmailSchema,
   QbrSchema,
+  type Usage,
+  type Tickets,
+  type Contract,
+  type Health,
+  type Email,
+  type Qbr,
 } from "@/src/contracts/tools";
-import { PlannerResultSchema } from "@/src/contracts/planner";
+import { PlannerResultSchema, type PlannerResultJson } from "@/src/contracts/planner";
 
-type ToolSchemaMap = Record<ToolName, z.ZodSchema<any>>;
+type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
+type ToolDataMap = {
+  get_customer_usage: Usage;
+  get_recent_tickets: Tickets;
+  get_contract_info: Contract;
+  calculate_health: Health;
+  generate_email: Email;
+  generate_qbr_outline: Qbr;
+};
 const TOOL_SCHEMAS: ToolSchemaMap = {
   get_customer_usage: UsageSchema,
   get_recent_tickets: TicketsSchema,
@@ -53,7 +67,7 @@ export async function GET(req: NextRequest) {
 
         const tools = getToolRegistry();
         const usedTools: Array<{ name: string; tookMs?: number; error?: string }> = [];
-        const cache: Partial<Record<ToolName, unknown>> = {};
+        const cache: Partial<ToolDataMap> = {};
         const messages: LlmMessage[] = [
           {
             role: "system",
@@ -69,20 +83,6 @@ export async function GET(req: NextRequest) {
           },
         ];
 
-        const timed = async <T,>(fn: () => Promise<T>, name: string) => {
-          const t0 = performance.now();
-          try {
-            const out = await fn();
-            const t1 = performance.now();
-            usedTools.push({ name, tookMs: Math.round(t1 - t0) });
-            return out;
-          } catch (e) {
-            const t1 = performance.now();
-            usedTools.push({ name, error: (e as Error).message });
-            throw e;
-          }
-        };
-
         const daysUntil = (dateStr: string): number | null => {
           const d = new Date(dateStr);
           if (isNaN(d.getTime())) return null;
@@ -91,10 +91,10 @@ export async function GET(req: NextRequest) {
         };
 
         const synthesizeActions = (taskHint?: string | null): string[] => {
-          const usage = cache["get_customer_usage"] as any | undefined;
-          const tickets = cache["get_recent_tickets"] as any | undefined;
-          const contract = cache["get_contract_info"] as any | undefined;
-          const health = cache["calculate_health"] as any | undefined;
+          const usage = cache.get_customer_usage;
+          const tickets = cache.get_recent_tickets;
+          const contract = cache.get_contract_info;
+          const health = cache.calculate_health;
           const actions: string[] = [];
           if (health?.riskLevel) {
             const risk = String(health.riskLevel).toLowerCase();
@@ -177,10 +177,10 @@ export async function GET(req: NextRequest) {
         };
 
         const synthesizeSummary = (): string | undefined => {
-          const usage = cache["get_customer_usage"] as any | undefined;
-          const tickets = cache["get_recent_tickets"] as any | undefined;
-          const contract = cache["get_contract_info"] as any | undefined;
-          const health = cache["calculate_health"] as any | undefined;
+          const usage = cache.get_customer_usage;
+          const tickets = cache.get_recent_tickets;
+          const contract = cache.get_contract_info;
+          const health = cache.calculate_health;
           const parts: string[] = [];
           if (usage?.trend) parts.push(`Usage trend: ${usage.trend}`);
           if (typeof tickets?.openTickets === "number") parts.push(`Open tickets: ${tickets.openTickets}`);
@@ -210,34 +210,53 @@ export async function GET(req: NextRequest) {
             await Promise.all(
               resp.assistant.tool_calls.map(async (tc) => {
                 const name = tc.function.name as ToolName;
-                let args: any = {};
+                let args: { customerId?: string; params?: Record<string, unknown> } = {};
                 try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
                 const cid = args.customerId || customerId;
                 const params = args.params || {};
                 send("tool:start", { name });
-                let envelope: unknown;
-                let endRecord: { name: string; tookMs?: number; error?: string } = { name };
+                let envelope: ResponseEnvelope<unknown> | { ok: false; data: null; error: { code: string; message: string } };
+                const endRecord: { name: string; tookMs?: number; error?: string } = { name };
                 try {
                   const schema = TOOL_SCHEMAS[name];
                   const t0 = performance.now();
                   const res = await invokeTool(name, { customerId: cid, params }, schema);
                   const t1 = performance.now();
-                  if ((res as any).ok) {
+                  if (res.ok) {
                     endRecord.tookMs = Math.round(t1 - t0);
                     usedTools.push({ name, tookMs: endRecord.tookMs });
                   } else {
-                    endRecord.error = (res as any).error?.code || "ERROR";
+                    endRecord.error = res.error?.code || "ERROR";
                     usedTools.push({ name, error: endRecord.error });
                   }
                   envelope = res;
-                  if ((res as any).ok) {
-                    cache[name] = (res as any).data;
-                    if (name === "calculate_health") send("patch", { health: (res as any).data });
-                    if (name === "generate_email") send("patch", { emailDraft: (res as any).data });
-                    if (name === "generate_qbr_outline") send("patch", { actions: ((res as any).data?.sections) || [] });
+                  if (res.ok) {
+                    switch (name) {
+                      case "get_customer_usage":
+                        cache.get_customer_usage = (res as EnvelopeSuccess<Usage>).data;
+                        break;
+                      case "get_recent_tickets":
+                        cache.get_recent_tickets = (res as EnvelopeSuccess<Tickets>).data;
+                        break;
+                      case "get_contract_info":
+                        cache.get_contract_info = (res as EnvelopeSuccess<Contract>).data;
+                        break;
+                      case "calculate_health":
+                        cache.calculate_health = (res as EnvelopeSuccess<Health>).data;
+                        break;
+                      case "generate_email":
+                        cache.generate_email = (res as EnvelopeSuccess<Email>).data;
+                        break;
+                      case "generate_qbr_outline":
+                        cache.generate_qbr_outline = (res as EnvelopeSuccess<Qbr>).data;
+                        break;
+                    }
+                    if (name === "calculate_health") send("patch", { health: cache.calculate_health });
+                    if (name === "generate_email") send("patch", { emailDraft: cache.generate_email });
+                    if (name === "generate_qbr_outline") send("patch", { actions: cache.generate_qbr_outline?.sections || [] });
                     const summary = synthesizeSummary();
                     const actions = synthesizeActions(task);
-                    const patch: any = {};
+                    const patch: Record<string, unknown> = {};
                     if (summary) patch.summary = summary;
                     if (actions && actions.length) patch.actions = actions;
                     if (Object.keys(patch).length) send("patch", patch);
@@ -261,7 +280,7 @@ export async function GET(req: NextRequest) {
 
           // Try to parse final JSON
           const content = resp.message ?? "";
-          let parsed: any = null;
+          let parsed: unknown = null;
           try {
             parsed = JSON.parse(content);
           } catch {
@@ -272,19 +291,19 @@ export async function GET(req: NextRequest) {
             }
           }
           const res = PlannerResultSchema.safeParse(parsed || {});
-          let out: any = res.success ? res.data : {};
+          const out: PlannerResultJson = res.success ? res.data : ({} as PlannerResultJson);
           // Backfill from cached tools
-          if (!out.health && cache["calculate_health"]) out.health = cache["calculate_health"]; 
-          if (!out.emailDraft && cache["generate_email"]) out.emailDraft = cache["generate_email"]; 
-          if ((!out.actions || out.actions.length === 0) && cache["generate_qbr_outline"]) out.actions = (cache["generate_qbr_outline"] as any)?.sections || [];
+          if (!out.health && cache.calculate_health) out.health = cache.calculate_health; 
+          if (!out.emailDraft && cache.generate_email) out.emailDraft = cache.generate_email; 
+          if ((!out.actions || out.actions.length === 0) && cache.generate_qbr_outline) out.actions = cache.generate_qbr_outline.sections || [];
           // Deterministic health if still missing
           if (!out.health) {
             try {
-              const resH = await invokeTool("calculate_health", { customerId, params: {} }, HealthSchema);
-              if ((resH as any).ok) {
-                out.health = (resH as any).data;
+              const resH = await invokeTool<Health>("calculate_health", { customerId, params: {} }, HealthSchema);
+              if (resH.ok) {
+                out.health = resH.data;
                 usedTools.push({ name: "calculate_health" });
-                send("patch", { health: (resH as any).data });
+                send("patch", { health: resH.data });
               }
             } catch {}
           }
@@ -298,22 +317,24 @@ export async function GET(req: NextRequest) {
           }
           out.planSource = "llm";
           out.customerId = customerId;
-          if (task) (out as any).task = task;
+          if (task) out.task = task;
           out.usedTools = usedTools;
           send("final", out);
           return close();
         }
 
         // Step limit fallback with partials
-        send("final", {
+        const partial: PlannerResultJson = {
           summary: "Partial results.",
           planSource: "llm",
           customerId,
           usedTools,
-          ...(cache["calculate_health"] ? { health: cache["calculate_health"] } : {}),
-          ...(cache["generate_email"] ? { emailDraft: cache["generate_email"] } : {}),
-          ...(cache["generate_qbr_outline"] ? { actions: (cache["generate_qbr_outline"] as any)?.sections || [] } : {}),
-        });
+          decisionLog: undefined,
+        };
+        if (cache.calculate_health) partial.health = cache.calculate_health;
+        if (cache.generate_email) partial.emailDraft = cache.generate_email;
+        if (cache.generate_qbr_outline) partial.actions = cache.generate_qbr_outline.sections || [];
+        send("final", partial);
         close();
       } catch (e) {
         send("final", { planSource: "heuristic", planHint: (e as Error).message });

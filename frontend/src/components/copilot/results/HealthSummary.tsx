@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  Activity,
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-} from "lucide-react";
+import { Activity, AlertTriangle, TrendingUp, Minus } from "lucide-react";
 import type { Health } from "@/src/contracts/tools";
 import { cn } from "@/src/lib/utils";
 

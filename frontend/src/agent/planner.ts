@@ -41,7 +41,6 @@ async function timed<T>(fn: () => Promise<ResponseEnvelope<T>>, name: string, us
     else used.push({ name, error: out.error.code });
     return out;
   } catch (e) {
-    const t1 = performance.now();
     used.push({ name, error: (e as Error).message });
     throw e;
   }

@@ -167,9 +167,9 @@ body {
   body {
     @apply bg-background text-foreground font-sans;
   }
-  /* a {
+  a {
     @apply text-primary hover:underline;
-  } */
+  }
   h1 {
     @apply font-bold tracking-tight text-3xl sm:text-4xl md:text-5xl;
   }

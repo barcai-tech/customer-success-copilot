@@ -101,7 +101,7 @@ export const TASKS: Record<
   },
 };
 
-export const useCopilotStore = create<CopilotState>((set, get) => ({
+export const useCopilotStore = create<CopilotState>((set, _get) => ({
   // Initial state
   selectedCustomer: null,
   selectedTask: null,
@@ -151,7 +151,7 @@ export const useCopilotStore = create<CopilotState>((set, get) => ({
 
   // Streaming helpers
   beginAssistantMessage: (content = "") => {
-    let newId = Math.random().toString(36).substring(7);
+    const newId = Math.random().toString(36).substring(7);
     set((state) => ({
       messages: [
         ...state.messages,
@@ -167,13 +167,13 @@ export const useCopilotStore = create<CopilotState>((set, get) => ({
     }));
     return newId;
   },
-  patchActiveAssistantResult: (partial) =>
+  patchActiveAssistantResult: (partial: Partial<PlannerResult>) =>
     set((state) => {
       const id = state.activeAssistantId;
-      if (!id) return {} as any;
+      if (!id) return {};
       const messages = state.messages.map((m) => {
         if (m.id !== id || m.role !== "assistant") return m;
-        const merged = { ...(m.result || {}), ...partial } as PlannerResult;
+        const merged: PlannerResult = { ...(m.result || {}), ...partial } as PlannerResult;
         return { ...m, result: merged };
       });
       return { messages };

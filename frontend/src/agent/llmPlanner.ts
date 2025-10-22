@@ -2,7 +2,7 @@
 
 import { getToolRegistry } from "@/src/agent/tool-registry";
 import { callLLM, type LlmMessage } from "@/src/llm/provider";
-import { invokeTool, type ToolName } from "@/src/agent/invokeTool";
+import { invokeTool, type ToolName, type ResponseEnvelope } from "@/src/agent/invokeTool";
 import type { z } from "zod";
 import {
   UsageSchema,
@@ -11,11 +11,27 @@ import {
   HealthSchema,
   EmailSchema,
   QbrSchema,
+  type Usage,
+  type Tickets,
+  type Contract,
+  type Health,
+  type Email,
+  type Qbr,
 } from "@/src/contracts/tools";
-import { PlannerResultSchema } from "@/src/contracts/planner";
+import { PlannerResultSchema, type PlannerResultJson } from "@/src/contracts/planner";
+import type { PlannerResult } from "@/src/agent/planner";
 import { parseIntent } from "@/src/agent/intent";
 
-type ToolSchemaMap = Record<ToolName, z.ZodSchema<any>>;
+type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
+
+type ToolDataMap = {
+  get_customer_usage: Usage;
+  get_recent_tickets: Tickets;
+  get_contract_info: Contract;
+  calculate_health: Health;
+  generate_email: Email;
+  generate_qbr_outline: Qbr;
+};
 
 const TOOL_SCHEMAS: ToolSchemaMap = {
   get_customer_usage: UsageSchema,
@@ -27,9 +43,9 @@ const TOOL_SCHEMAS: ToolSchemaMap = {
 };
 
 export async function runLlmPlanner(prompt: string, selectedCustomerId?: string) {
-  const usedTools: Array<{ name: string; tookMs?: number; error?: string }> = [];
+  const usedTools: PlannerResult["usedTools"] = [];
   let resolvedCustomerId: string | undefined = selectedCustomerId;
-  const resultCache: Partial<Record<ToolName, unknown>> = {};
+  const resultCache: Partial<ToolDataMap> = {};
   const parsed = await parseIntent(prompt);
   const taskHint = parsed.task || null;
 
@@ -84,7 +100,7 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
       for (const tc of resp.assistant.tool_calls) {
         const name = tc.function?.name as ToolName;
         const argsRaw = tc.function?.arguments ?? "{}";
-        let args: any = {};
+        let args: { customerId?: string; params?: Record<string, unknown> } = {};
         try {
           args = JSON.parse(argsRaw);
         } catch {
@@ -106,7 +122,7 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
 
         // Time + call tool with schema validation
         const t0 = performance.now();
-        let envelope: unknown;
+        let envelope: ResponseEnvelope<unknown> | { ok: false; data: null; error: { code: string; message: string } };
         try {
           const schema = TOOL_SCHEMAS[name];
           const res = await invokeTool(name, { customerId, params }, schema);
@@ -114,12 +130,30 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
           if (res.ok) usedTools.push({ name, tookMs: Math.round(t1 - t0) });
           else usedTools.push({ name, error: res.error.code });
           envelope = res;
-          if ((res as any).ok) {
+          if (res.ok) {
             // Cache successful tool data for post-processing backfill
-            resultCache[name] = (res as any).data;
+            switch (name) {
+              case "get_customer_usage":
+                resultCache.get_customer_usage = res.data as Usage;
+                break;
+              case "get_recent_tickets":
+                resultCache.get_recent_tickets = res.data as Tickets;
+                break;
+              case "get_contract_info":
+                resultCache.get_contract_info = res.data as Contract;
+                break;
+              case "calculate_health":
+                resultCache.calculate_health = res.data as Health;
+                break;
+              case "generate_email":
+                resultCache.generate_email = res.data as Email;
+                break;
+              case "generate_qbr_outline":
+                resultCache.generate_qbr_outline = res.data as Qbr;
+                break;
+            }
           }
         } catch (e) {
-          const t1 = performance.now();
           usedTools.push({ name, error: (e as Error).message });
           envelope = { ok: false, data: null, error: { code: "EXCEPTION", message: (e as Error).message } } as const;
         }
@@ -148,7 +182,7 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
     let parsed: unknown;
     try {
       parsed = JSON.parse(content);
-    } catch (e) {
+    } catch {
       // Try to salvage JSON object from fences or extra prose
       const fence = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
       const match = fence?.[1] || content.match(/\{[\s\S]*\}/)?.[0];
@@ -192,17 +226,23 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
     }
 
     // Merge usedTools collected by us into final result
-    const out: any = result.data;
+    const out: PlannerResultJson = result.data;
     // Try to map high-level reasons from decisionLog into usedTools entries by order
     if (out.decisionLog && out.decisionLog.length) {
-      const log = [...out.decisionLog];
-      const assigned = usedTools.map((ut) => ({ ...ut }));
+      type LogEntry = string | { reason: string; tool?: string };
+      const log: LogEntry[] = [...(out.decisionLog as LogEntry[])];
+      const assigned: PlannerResult["usedTools"] = usedTools.map((ut) => ({ ...ut }));
       let logIdx = 0;
       for (let i = 0; i < assigned.length; i++) {
         // Find next log item that mentions this tool by name if possible
-        const matchIdx = log.findIndex((l, idx) => idx >= logIdx && (l.tool?.toLowerCase() === assigned[i].name.toLowerCase() || !l.tool));
+        const matchIdx = log.findIndex((l, idx) => {
+          if (idx < logIdx) return false;
+          if (typeof l === "string") return true;
+          return !l.tool || l.tool.toLowerCase() === assigned[i].name.toLowerCase();
+        });
         if (matchIdx !== -1) {
-          assigned[i].reason = log[matchIdx].reason;
+          const entry = log[matchIdx];
+          assigned[i].reason = typeof entry === "string" ? entry : entry.reason;
           logIdx = matchIdx + 1;
         }
       }
@@ -211,23 +251,23 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
       out.usedTools = usedTools;
     }
     // Backfill structured fields from tool outputs if the LLM omitted them
-    if (!out.health && resultCache["calculate_health"]) {
-      out.health = resultCache["calculate_health"];
+    if (!out.health && resultCache.calculate_health) {
+      out.health = resultCache.calculate_health;
     }
-    if (!out.emailDraft && resultCache["generate_email"]) {
-      out.emailDraft = resultCache["generate_email"];
+    if (!out.emailDraft && resultCache.generate_email) {
+      out.emailDraft = resultCache.generate_email;
     }
-    if (!out.actions && resultCache["generate_qbr_outline"]) {
-      const q = resultCache["generate_qbr_outline"] as any;
-      if (q && Array.isArray(q.sections)) out.actions = q.sections;
+    if (!out.actions && resultCache.generate_qbr_outline) {
+      const q = resultCache.generate_qbr_outline;
+      if (q && Array.isArray(q.sections)) out.actions = q.sections as string[];
     }
 
     // Heuristic actions backfill (renewal / health / usage / tickets)
     if (!out.actions || out.actions.length === 0) {
-      const usage = resultCache["get_customer_usage"] as any | undefined;
-      const tickets = resultCache["get_recent_tickets"] as any | undefined;
-      const contract = resultCache["get_contract_info"] as any | undefined;
-      const health = out.health as any | undefined;
+      const usage = resultCache.get_customer_usage;
+      const tickets = resultCache.get_recent_tickets;
+      const contract = resultCache.get_contract_info;
+      const health = out.health;
       const actions: string[] = [];
 
       // Health-driven suggestions
@@ -314,9 +354,9 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
 
     // Summary backfill when the model omitted it
     if (!out.summary) {
-      const usage = resultCache["get_customer_usage"] as any | undefined;
-      const tickets = resultCache["get_recent_tickets"] as any | undefined;
-      const contract = resultCache["get_contract_info"] as any | undefined;
+      const usage = resultCache.get_customer_usage;
+      const tickets = resultCache.get_recent_tickets;
+      const contract = resultCache.get_contract_info;
       const parts: string[] = [];
       if (usage?.trend) parts.push(`Usage trend: ${usage.trend}`);
       if (typeof tickets?.openTickets === "number") parts.push(`Open tickets: ${tickets.openTickets}`);
@@ -334,7 +374,7 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
     if (!out.health && resolvedCustomerId) {
       try {
         const t0h = performance.now();
-        const resH = await invokeTool("calculate_health", { customerId: resolvedCustomerId }, HealthSchema);
+        const resH = await invokeTool<Health>("calculate_health", { customerId: resolvedCustomerId }, HealthSchema);
         const t1h = performance.now();
         if (resH.ok) {
           out.health = resH.data;
@@ -348,7 +388,7 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
     }
 
     out.planSource = "llm";
-    if (taskHint) (out as any).task = taskHint;
+    if (taskHint) out.task = taskHint;
     if (resolvedCustomerId) out.customerId = resolvedCustomerId;
     return out;
   }
@@ -363,15 +403,15 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
     customerId: resolvedCustomerId,
     ...(taskHint ? { task: taskHint } : {}),
     // Provide any structured fields we already fetched
-    ...(resultCache["calculate_health"] ? { health: resultCache["calculate_health"] as any } : {}),
-    ...(resultCache["generate_email"] ? { emailDraft: resultCache["generate_email"] as any } : {}),
-    ...(resultCache["generate_qbr_outline"]
-      ? { actions: (resultCache["generate_qbr_outline"] as any)?.sections }
+    ...(resultCache.calculate_health ? { health: resultCache.calculate_health } : {}),
+    ...(resultCache.generate_email ? { emailDraft: resultCache.generate_email } : {}),
+    ...(resultCache.generate_qbr_outline
+      ? { actions: resultCache.generate_qbr_outline.sections }
       : {}),
     ...(function () {
-      const usage = resultCache["get_customer_usage"] as any | undefined;
-      const tickets = resultCache["get_recent_tickets"] as any | undefined;
-      const contract = resultCache["get_contract_info"] as any | undefined;
+      const usage = resultCache.get_customer_usage;
+      const tickets = resultCache.get_recent_tickets;
+      const contract = resultCache.get_contract_info;
       const parts: string[] = [];
       if (usage?.trend) parts.push(`Usage trend: ${usage.trend}`);
       if (typeof tickets?.openTickets === "number") parts.push(`Open tickets: ${tickets.openTickets}`);

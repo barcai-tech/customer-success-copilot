@@ -14,6 +14,8 @@ interface TechnicalDetailsProps {
 }
 
 export function TechnicalDetails({ result, isRunning = false }: TechnicalDetailsProps) {
+  const cancelStream = useCopilotStore((s) => s.cancelStream);
+  const status = useCopilotStore((s) => s.status);
   const showRationale = !!(result.decisionLog || (result.usedTools && result.usedTools.length > 0));
   const showTimeline = !!(result.usedTools && (result.usedTools.length > 0 || isRunning));
   if (!showRationale && !showTimeline) return null;
@@ -23,9 +25,6 @@ export function TechnicalDetails({ result, isRunning = false }: TechnicalDetails
     const found = CUSTOMERS.find((c) => c.id === result.customerId);
     return found ? `${found.name} (${found.id})` : result.customerId;
   })();
-
-  const cancelStream = useCopilotStore((s) => s.cancelStream);
-  const status = useCopilotStore((s) => s.status);
 
   return (
     <div className="rounded-lg border bg-card p-6 space-y-4">

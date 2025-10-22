@@ -6,7 +6,7 @@ import { MessageList } from "./MessageList";
 import { CustomerCombobox } from "./CustomerCombobox";
 import { QuickActions } from "./QuickActions";
 import { useCopilotStore } from "../../store/copilot-store";
-import { runLlmPlannerFromPromptAction } from "../../../app/actions";
+// import { runLlmPlannerFromPromptAction } from "../../../app/actions";
 import { toast } from "sonner";
 
 export function CopilotDashboard() {
@@ -14,7 +14,7 @@ export function CopilotDashboard() {
   const selectedCustomer = useCopilotStore((state) => state.selectedCustomer);
   const addMessage = useCopilotStore((state) => state.addMessage);
   const setStatus = useCopilotStore((state) => state.setStatus);
-  const setResult = useCopilotStore((state) => state.setResult);
+  // const setResult = useCopilotStore((state) => state.setResult);
   const setError = useCopilotStore((state) => state.setError);
 
   const handleSubmit = async (message: string) => {
@@ -33,7 +33,7 @@ export function CopilotDashboard() {
       if (selectedCustomer?.id) params.set("selectedCustomerId", selectedCustomer.id);
 
       // Start a placeholder assistant message to stream into
-      const beginId = useCopilotStore.getState().beginAssistantMessage("Preparing...");
+      useCopilotStore.getState().beginAssistantMessage("Preparing...");
 
       const source = new EventSource(`/api/copilot/stream?${params.toString()}`);
       useCopilotStore.getState().setStream(source);
@@ -49,31 +49,31 @@ export function CopilotDashboard() {
           });
         } catch {}
       });
-      source.addEventListener("tool:start", (ev) => {
+      source.addEventListener("tool:start", (ev: MessageEvent) => {
         try {
-          const data = JSON.parse((ev as MessageEvent).data);
+          const data = JSON.parse(ev.data) as { name: string };
           const st = useCopilotStore.getState();
           const current = st.messages.find((m) => m.id === st.activeAssistantId);
-          const used = [...((current?.result?.usedTools as any[]) || [])];
+          const used = [...((current?.result?.usedTools || []))];
           if (!used.some((u) => u.name === data.name)) used.push({ name: data.name });
           st.patchActiveAssistantResult({ usedTools: used });
         } catch {}
       });
-      source.addEventListener("tool:end", (ev) => {
+      source.addEventListener("tool:end", (ev: MessageEvent) => {
         try {
-          const data = JSON.parse((ev as MessageEvent).data);
+          const data = JSON.parse(ev.data) as { name: string; tookMs?: number; error?: string };
           const st = useCopilotStore.getState();
           const current = st.messages.find((m) => m.id === st.activeAssistantId);
-          const used = [...((current?.result?.usedTools as any[]) || [])];
+          const used = [...((current?.result?.usedTools || []))];
           const idx = used.findIndex((u) => u.name === data.name);
           if (idx >= 0) used[idx] = { ...used[idx], ...data };
           else used.push(data);
           st.patchActiveAssistantResult({ usedTools: used });
         } catch {}
       });
-      source.addEventListener("patch", (ev) => {
+      source.addEventListener("patch", (ev: MessageEvent) => {
         try {
-          const data = JSON.parse((ev as MessageEvent).data);
+          const data = JSON.parse(ev.data) as Record<string, unknown>;
           useCopilotStore.getState().patchActiveAssistantResult(data);
         } catch {}
       });
