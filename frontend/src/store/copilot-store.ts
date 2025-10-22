@@ -33,6 +33,8 @@ export interface CopilotState {
   status: ExecutionStatus;
   result: PlannerResult | null;
   error: string | null;
+  activeAssistantId?: string | null;
+  stream?: EventSource | null;
 
   // Actions - Selection
   setCustomer: (customer: Customer | null) => void;
@@ -48,6 +50,13 @@ export interface CopilotState {
   setResult: (result: PlannerResult | null) => void;
   setError: (error: string | null) => void;
   reset: () => void;
+
+  // Streaming helpers
+  beginAssistantMessage: (content?: string) => string;
+  patchActiveAssistantResult: (partial: Partial<PlannerResult>) => void;
+  finalizeActiveAssistant: (final: PlannerResult, content?: string) => void;
+  setStream: (es: EventSource | null) => void;
+  cancelStream: () => void;
 }
 
 // Available customers
@@ -92,7 +101,7 @@ export const TASKS: Record<
   },
 };
 
-export const useCopilotStore = create<CopilotState>((set) => ({
+export const useCopilotStore = create<CopilotState>((set, get) => ({
   // Initial state
   selectedCustomer: null,
   selectedTask: null,
@@ -101,6 +110,8 @@ export const useCopilotStore = create<CopilotState>((set) => ({
   status: "idle",
   result: null,
   error: null,
+  activeAssistantId: null,
+  stream: null,
 
   // Actions - Selection
   setCustomer: (customer) =>
@@ -135,5 +146,62 @@ export const useCopilotStore = create<CopilotState>((set) => ({
       status: "idle",
       result: null,
       error: null,
+      activeAssistantId: null,
+    }),
+
+  // Streaming helpers
+  beginAssistantMessage: (content = "") => {
+    let newId = Math.random().toString(36).substring(7);
+    set((state) => ({
+      messages: [
+        ...state.messages,
+        {
+          id: newId,
+          role: "assistant",
+          content,
+          timestamp: new Date(),
+          result: undefined,
+        },
+      ],
+      activeAssistantId: newId,
+    }));
+    return newId;
+  },
+  patchActiveAssistantResult: (partial) =>
+    set((state) => {
+      const id = state.activeAssistantId;
+      if (!id) return {} as any;
+      const messages = state.messages.map((m) => {
+        if (m.id !== id || m.role !== "assistant") return m;
+        const merged = { ...(m.result || {}), ...partial } as PlannerResult;
+        return { ...m, result: merged };
+      });
+      return { messages };
+    }),
+  finalizeActiveAssistant: (final, content) =>
+    set((state) => {
+      const id = state.activeAssistantId;
+      const messages = state.messages.map((m) => {
+        if (id && m.id === id && m.role === "assistant") {
+          return { ...m, content: content ?? (final.summary || m.content), result: final };
+        }
+        return m;
+      });
+      // Close stream if any
+      try { state.stream?.close(); } catch {}
+      return { messages, activeAssistantId: null, status: "success", result: final, error: null, stream: null };
+    }),
+  setStream: (es) => set({ stream: es }),
+  cancelStream: () =>
+    set((state) => {
+      try { state.stream?.close(); } catch {}
+      // Mark active assistant as cancelled
+      const messages = state.messages.map((m) => {
+        if (state.activeAssistantId && m.id === state.activeAssistantId && m.role === "assistant") {
+          return { ...m, content: "Cancelled.", result: m.result };
+        }
+        return m;
+      });
+      return { stream: null, activeAssistantId: null, status: "idle", messages };
     }),
 }));

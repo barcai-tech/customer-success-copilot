@@ -6,10 +6,12 @@ import { useCopilotStore } from "../../store/copilot-store";
 import { HealthSummary } from "./results/HealthSummary";
 import { EmailDraftCard } from "./results/EmailDraftCard";
 import { ActionItems } from "./results/ActionItems";
-import { ToolExecutionTimeline } from "./results/ToolExecutionTimeline";
+import { TechnicalDetails } from "./results/TechnicalDetails";
 
 export function MessageList() {
   const messages = useCopilotStore((state) => state.messages);
+  const activeAssistantId = useCopilotStore((s) => s.activeAssistantId);
+  const status = useCopilotStore((s) => s.status);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
@@ -81,7 +83,7 @@ export function MessageList() {
             {/* Show result if present */}
             {message.result && (
               <div className="w-full space-y-4">
-                {/* Health Summary */}
+                {/* Health Summary always first if available */}
                 {message.result.health && (
                   <HealthSummary health={message.result.health} />
                 )}
@@ -91,7 +93,7 @@ export function MessageList() {
                   <EmailDraftCard email={message.result.emailDraft} />
                 )}
 
-                {/* Action Items */}
+                {/* Summary & Actions */}
                 {(message.result.summary || message.result.actions) && (
                   <ActionItems
                     summary={message.result.summary}
@@ -99,10 +101,11 @@ export function MessageList() {
                   />
                 )}
 
-                {/* Tool Execution Timeline */}
-                {message.result.usedTools && (
-                  <ToolExecutionTimeline tools={message.result.usedTools} />
-                )}
+                {/* Technical details last: rationale + timeline */}
+                <TechnicalDetails
+                  result={message.result}
+                  isRunning={status === "running" && activeAssistantId === message.id}
+                />
               </div>
             )}
           </div>

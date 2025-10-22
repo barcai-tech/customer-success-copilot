@@ -15,3 +15,5 @@ export { HealthSummary } from "./results/HealthSummary";
 export { EmailDraftCard } from "./results/EmailDraftCard";
 export { ToolExecutionTimeline } from "./results/ToolExecutionTimeline";
 export { ActionItems } from "./results/ActionItems";
+export { PlanRationale } from "./results/PlanRationale";
+export { TechnicalDetails } from "./results/TechnicalDetails";

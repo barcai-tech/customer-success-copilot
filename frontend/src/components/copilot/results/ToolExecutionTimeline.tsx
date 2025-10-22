@@ -7,22 +7,15 @@ import { cn } from "@/src/lib/utils";
 interface ToolExecutionTimelineProps {
   tools: PlannerResult["usedTools"];
   isRunning?: boolean;
+  embedded?: boolean;
+  compact?: boolean;
 }
 
-export function ToolExecutionTimeline({
-  tools,
-  isRunning = false,
-}: ToolExecutionTimelineProps) {
+export function ToolExecutionTimeline({ tools, isRunning = false, embedded = false, compact = false }: ToolExecutionTimelineProps) {
   if (tools.length === 0 && !isRunning) return null;
 
-  return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
-      <div className="flex items-center gap-2">
-        <Clock className="h-5 w-5 text-primary" />
-        <h3 className="font-semibold">Tool Execution</h3>
-      </div>
-
-      <div className="space-y-2">
+  const content = (
+    <div className={compact ? "space-y-1" : "space-y-2"}>
         {tools.map((tool, index) => {
           const hasError = !!tool.error;
           const isSuccess = !hasError && typeof tool.tookMs === "number";
@@ -31,7 +24,8 @@ export function ToolExecutionTimeline({
             <div
               key={`${tool.name}-${index}`}
               className={cn(
-                "flex items-center justify-between px-4 py-3 rounded-md border transition-all",
+                "flex items-center justify-between rounded-md border transition-all",
+                compact ? "px-3 py-2 text-xs" : "px-4 py-3",
                 hasError
                   ? "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900"
                   : "bg-muted border-border"
@@ -55,6 +49,11 @@ export function ToolExecutionTimeline({
                   >
                     {tool.name}
                   </span>
+                  {tool.reason && (
+                    <span className="text-xs text-muted-foreground mt-0.5">
+                      {tool.reason}
+                    </span>
+                  )}
                   {tool.error && (
                     <span className="text-xs text-red-600 dark:text-red-400 mt-0.5">
                       {tool.error}
@@ -64,7 +63,7 @@ export function ToolExecutionTimeline({
               </div>
 
               {typeof tool.tookMs === "number" && (
-                <span className="text-xs text-muted-foreground font-mono">
+                <span className={compact ? "text-[10px] text-muted-foreground font-mono" : "text-xs text-muted-foreground font-mono"}>
                   {tool.tookMs}ms
                 </span>
               )}
@@ -73,14 +72,25 @@ export function ToolExecutionTimeline({
         })}
 
         {isRunning && tools.length === 0 && (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-md bg-muted border border-border">
+          <div className={cn("flex items-center gap-3 rounded-md bg-muted border border-border", compact ? "px-3 py-2" : "px-4 py-3") }>
             <Loader2 className="h-4 w-4 text-primary animate-spin shrink-0" />
-            <span className="text-sm text-muted-foreground">
+            <span className={compact ? "text-xs text-muted-foreground" : "text-sm text-muted-foreground"}>
               Initializing copilot...
             </span>
           </div>
         )}
       </div>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="rounded-lg border bg-card p-6 space-y-4">
+      <div className="flex items-center gap-2">
+        <Clock className="h-5 w-5 text-primary" />
+        <h3 className="font-semibold">Tool Execution</h3>
+      </div>
+      {content}
     </div>
   );
 }

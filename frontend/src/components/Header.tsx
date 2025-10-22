@@ -31,7 +31,7 @@ export default function Header() {
           href="/"
           className="flex items-center gap-2 font-semibold text-lg"
         >
-          <TrendingUp className="h-6 w-6 text-primary" />
+          <TrendingUp className="h-6 w-6 text-foreground" />
           <span className="hidden sm:inline">Customer Success Copilot</span>
         </Link>
 

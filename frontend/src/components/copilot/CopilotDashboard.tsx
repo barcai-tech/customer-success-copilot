@@ -6,7 +6,8 @@ import { MessageList } from "./MessageList";
 import { CustomerCombobox } from "./CustomerCombobox";
 import { QuickActions } from "./QuickActions";
 import { useCopilotStore } from "../../store/copilot-store";
-import { runPlannerAction } from "../../../app/actions";
+import { runLlmPlannerFromPromptAction } from "../../../app/actions";
+import { toast } from "sonner";
 
 export function CopilotDashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -27,40 +28,79 @@ export function CopilotDashboard() {
     setStatus("running");
 
     try {
-      // For now, we'll extract customer from the message or use selected customer
-      // In the future, this would use LLM to parse the intent
-      const customerId = selectedCustomer?.id || "acme-001"; // Default fallback
+      // Prefer streaming endpoint for progressive updates
+      const params = new URLSearchParams({ message });
+      if (selectedCustomer?.id) params.set("selectedCustomerId", selectedCustomer.id);
 
-      // Create FormData for the server action
-      const formData = new FormData();
-      formData.append("customerId", customerId);
+      // Start a placeholder assistant message to stream into
+      const beginId = useCopilotStore.getState().beginAssistantMessage("Preparing...");
 
-      // Call the server action
-      const result = await runPlannerAction(undefined, formData);
-
-      if (result && "error" in result && result.error) {
-        addMessage({
-          role: "assistant",
-          content: "I encountered an error while processing your request.",
-          error: result.error,
-        });
-        setError(result.error);
-      } else if (result && "result" in result && result.result) {
-        addMessage({
-          role: "assistant",
-          content: result.result.summary || "Here are the results:",
-          result: result.result,
-        });
-        setResult(result.result);
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unexpected error occurred";
-      addMessage({
-        role: "assistant",
-        content: "I encountered an error while processing your request.",
-        error: errorMessage,
+      const source = new EventSource(`/api/copilot/stream?${params.toString()}`);
+      useCopilotStore.getState().setStream(source);
+      source.addEventListener("plan", (ev) => {
+        try {
+          const data = JSON.parse((ev as MessageEvent).data);
+          useCopilotStore.getState().patchActiveAssistantResult({
+            planSource: data.planSource,
+            customerId: data.customerId,
+            task: data.task,
+            decisionLog: data.decisionLog,
+            usedTools: [],
+          });
+        } catch {}
       });
+      source.addEventListener("tool:start", (ev) => {
+        try {
+          const data = JSON.parse((ev as MessageEvent).data);
+          const st = useCopilotStore.getState();
+          const current = st.messages.find((m) => m.id === st.activeAssistantId);
+          const used = [...((current?.result?.usedTools as any[]) || [])];
+          if (!used.some((u) => u.name === data.name)) used.push({ name: data.name });
+          st.patchActiveAssistantResult({ usedTools: used });
+        } catch {}
+      });
+      source.addEventListener("tool:end", (ev) => {
+        try {
+          const data = JSON.parse((ev as MessageEvent).data);
+          const st = useCopilotStore.getState();
+          const current = st.messages.find((m) => m.id === st.activeAssistantId);
+          const used = [...((current?.result?.usedTools as any[]) || [])];
+          const idx = used.findIndex((u) => u.name === data.name);
+          if (idx >= 0) used[idx] = { ...used[idx], ...data };
+          else used.push(data);
+          st.patchActiveAssistantResult({ usedTools: used });
+        } catch {}
+      });
+      source.addEventListener("patch", (ev) => {
+        try {
+          const data = JSON.parse((ev as MessageEvent).data);
+          useCopilotStore.getState().patchActiveAssistantResult(data);
+        } catch {}
+      });
+      source.addEventListener("final", (ev) => {
+        try {
+          const data = JSON.parse((ev as MessageEvent).data);
+          if (data.planSource === "heuristic" && data.planHint) {
+            toast("LLM planner fallback", { description: data.planHint });
+          }
+          useCopilotStore.getState().finalizeActiveAssistant(data, data.summary || "Here are the results:");
+          toast.success("Plan complete", { description: data.planSource === "llm" ? "LLM plan finished." : "Heuristic plan finished." });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "Failed to parse final";
+          setError(msg);
+        } finally {
+          source.close();
+          useCopilotStore.getState().setStream(null);
+        }
+      });
+      source.addEventListener("error", () => {
+        source.close();
+        toast("Streaming error", { description: "Stream closed unexpectedly" });
+        useCopilotStore.getState().setStream(null);
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
+      addMessage({ role: "assistant", content: "I encountered an error while processing your request.", error: errorMessage });
       setError(errorMessage);
     }
   };
