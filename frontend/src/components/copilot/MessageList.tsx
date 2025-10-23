@@ -94,12 +94,17 @@ export function MessageList() {
                 )}
 
                 {/* Summary & Actions */}
-                {(message.result.summary || message.result.actions) && (
-                  <ActionItems
-                    summary={message.result.summary}
-                    actions={message.result.actions}
-                  />
-                )}
+                {(() => {
+                  const r = message.result;
+                  const hasActions = !!(r?.actions && r.actions.length > 0);
+                  const summaryIsDuplicate = !!(r?.summary && r.summary === message.content);
+                  // Show card only if it adds value: there are actions or the summary
+                  // is different from the bubble text. Notes alone won't trigger it
+                  // to avoid duplicate-looking cards for out-of-scope replies.
+                  return (hasActions || (r?.summary && !summaryIsDuplicate)) ? (
+                    <ActionItems summary={r?.summary} actions={r?.actions} notes={r?.notes} />
+                  ) : null;
+                })()}
 
                 {/* Technical details last: rationale + timeline */}
                 <TechnicalDetails
