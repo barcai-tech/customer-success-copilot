@@ -2,7 +2,7 @@ import json
 from _shared.hmac_auth import require_hmac
 from _shared.models import parse_envelope
 from _shared.responses import ok, error, preflight
-from _shared.s3util import get_json_with_fallback
+from _shared.db import get_tickets
 
 
 def _handle(event):
@@ -11,13 +11,9 @@ def _handle(event):
             return preflight()
 
         require_hmac(event)
-        customer_id, _params = parse_envelope(event.get("body") or "")
-
-        data = get_json_with_fallback(f"tickets/{customer_id}.json")
-        payload = {
-            "openTickets": int(data.get("openTickets", 0)),
-            "recentTickets": data.get("recentTickets", []),
-        }
+        customer_id, params = parse_envelope(event.get("body") or "")
+        owner = (params or {}).get("ownerUserId") or "public"
+        payload = get_tickets(owner, customer_id)
         return ok(payload)
 
     except FileNotFoundError:
@@ -44,4 +40,3 @@ if __name__ == "__main__":
     sig = sign(os.environ["HMAC_SECRET"], ts, "local", body)
     event = {"body": body, "headers": {"X-Signature": sig, "X-Timestamp": ts, "X-Client": "local"}}
     print(handler(event, None))
-

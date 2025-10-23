@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, jsonb, uuid, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, jsonb, uuid, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const companies = pgTable(
@@ -38,3 +38,47 @@ export const messages = pgTable(
 export const companiesRelations = relations(companies, ({ many }) => ({
   messages: many(messages),
 }));
+
+// Tool data tables (DB-native instead of S3)
+export const contracts = pgTable(
+  "contracts",
+  {
+    companyExternalId: text("company_external_id").notNull(),
+    ownerUserId: text("owner_user_id").notNull(),
+    renewalDate: text("renewal_date").notNull(),
+    arr: integer("arr").notNull(),
+  },
+  (t) => ({
+    contractsOwnerIdx: index("contracts_owner_idx").on(t.ownerUserId),
+    contractsCompanyIdx: index("contracts_company_idx").on(t.companyExternalId),
+  })
+);
+
+export const usageSummaries = pgTable(
+  "usage_summaries",
+  {
+    companyExternalId: text("company_external_id").notNull(),
+    ownerUserId: text("owner_user_id").notNull(),
+    trend: text("trend").notNull(), // up | down | flat
+    avgDailyUsers: integer("avg_daily_users").notNull(),
+    sparkline: jsonb("sparkline").$type<number[]>().notNull(),
+  },
+  (t) => ({
+    usageOwnerIdx: index("usage_owner_idx").on(t.ownerUserId),
+    usageCompanyIdx: index("usage_company_idx").on(t.companyExternalId),
+  })
+);
+
+export const ticketSummaries = pgTable(
+  "ticket_summaries",
+  {
+    companyExternalId: text("company_external_id").notNull(),
+    ownerUserId: text("owner_user_id").notNull(),
+    openTickets: integer("open_tickets").notNull(),
+    recentTickets: jsonb("recent_tickets").$type<Array<{ id: string; severity: string }>>().notNull(),
+  },
+  (t) => ({
+    ticketsOwnerIdx: index("tickets_owner_idx").on(t.ownerUserId),
+    ticketsCompanyIdx: index("tickets_company_idx").on(t.companyExternalId),
+  })
+);

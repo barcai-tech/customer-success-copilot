@@ -19,6 +19,7 @@ import {
   type Qbr,
 } from "@/src/contracts/tools";
 import { PlannerResultSchema, type PlannerResultJson } from "@/src/contracts/planner";
+import { auth } from "@clerk/nextjs/server";
 import { getRandomOutOfScopeReply } from "@/src/agent/outOfScopeReplies";
 
 type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
@@ -73,6 +74,8 @@ export async function GET(req: NextRequest) {
         }
 
         const tools = getToolRegistry();
+        const { userId } = auth();
+        const ownerUserId = userId ?? "public";
         const usedTools: Array<{ name: string; tookMs?: number; error?: string }> = [];
         const cache: Partial<ToolDataMap> = {};
         const messages: LlmMessage[] = [
@@ -222,7 +225,7 @@ export async function GET(req: NextRequest) {
                 let args: { customerId?: string; params?: Record<string, unknown> } = {};
                 try { args = JSON.parse(tc.function.arguments || "{}"); } catch {}
                 const cid = args.customerId || customerId;
-                const params = args.params || {};
+                const params = { ...(args.params || {}), ownerUserId };
                 send("tool:start", { name });
                 let envelope: ResponseEnvelope<unknown> | { ok: false; data: null; error: { code: string; message: string } };
                 const endRecord: { name: string; tookMs?: number; error?: string } = { name };
@@ -308,7 +311,7 @@ export async function GET(req: NextRequest) {
           // Deterministic health if still missing
           if (!out.health) {
             try {
-              const resH = await invokeTool<Health>("calculate_health", { customerId, params: {} }, HealthSchema);
+              const resH = await invokeTool<Health>("calculate_health", { customerId, params: { ownerUserId } }, HealthSchema);
               if (resH.ok) {
                 out.health = resH.data;
                 usedTools.push({ name: "calculate_health" });

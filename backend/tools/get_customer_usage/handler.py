@@ -2,7 +2,7 @@ import json
 from _shared.hmac_auth import require_hmac
 from _shared.models import parse_envelope
 from _shared.responses import ok, error, preflight
-from _shared.s3util import get_json_with_fallback
+from _shared.db import get_usage
 
 
 def _handle(event):
@@ -14,15 +14,9 @@ def _handle(event):
         require_hmac(event)
 
         customer_id, params = parse_envelope(event.get("body") or "")
-        # periodDays may be used for filtering in future; ignored in sample
-        _ = params
+        owner = (params or {}).get("ownerUserId") or "public"
 
-        data = get_json_with_fallback(f"usage/{customer_id}.json")
-        payload = {
-            "trend": data.get("trend", "flat"),
-            "avgDailyUsers": data.get("avgDailyUsers", 0),
-            "sparkline": data.get("sparkline", []),
-        }
+        payload = get_usage(owner, customer_id)
         return ok(payload)
 
     except FileNotFoundError:
@@ -49,4 +43,3 @@ if __name__ == "__main__":  # simple local sanity
     sig = sign(os.environ["HMAC_SECRET"], ts, "local", body)
     event = {"body": body, "headers": {"X-Signature": sig, "X-Timestamp": ts, "X-Client": "local"}}
     print(handler(event, None))
-

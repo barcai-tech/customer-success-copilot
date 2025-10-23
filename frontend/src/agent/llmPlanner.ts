@@ -21,6 +21,7 @@ import {
 import { PlannerResultSchema, type PlannerResultJson } from "@/src/contracts/planner";
 import type { PlannerResult } from "@/src/agent/planner";
 import { parseIntent } from "@/src/agent/intent";
+import { auth } from "@clerk/nextjs/server";
 import { getRandomOutOfScopeReply } from "@/src/agent/outOfScopeReplies";
 
 type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
@@ -127,7 +128,8 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
 
         // Normalize envelope
         const customerId: string | undefined = args.customerId ?? selectedCustomerId;
-        const params: Record<string, unknown> = args.params ?? {};
+        const { userId } = auth();
+        const params: Record<string, unknown> = { ...(args.params ?? {}), ownerUserId: userId ?? "public" };
         if (!customerId) {
           usedTools.push({ name, error: "MISSING_CUSTOMER_ID" });
           messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify({ ok: false, data: null, error: { code: "MISSING_CUSTOMER_ID", message: "customerId is required" } }) });
@@ -389,7 +391,8 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
     if (!out.health && resolvedCustomerId) {
       try {
         const t0h = performance.now();
-        const resH = await invokeTool<Health>("calculate_health", { customerId: resolvedCustomerId }, HealthSchema);
+        const { userId } = auth();
+        const resH = await invokeTool<Health>("calculate_health", { customerId: resolvedCustomerId, params: { ownerUserId: userId ?? "public" } }, HealthSchema);
         const t1h = performance.now();
         if (resH.ok) {
           out.health = resH.data;
