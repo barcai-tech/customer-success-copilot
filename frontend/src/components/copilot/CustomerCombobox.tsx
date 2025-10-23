@@ -11,7 +11,8 @@ import {
   CommandList,
 } from "cmdk";
 import { Button } from "../ui/button";
-import { useCopilotStore, CUSTOMERS } from "../../store/copilot-store";
+import { useEffect } from "react";
+import { useCopilotStore } from "../../store/copilot-store";
 
 interface CustomerComboboxProps {
   onSelect?: (customerId: string) => void;
@@ -26,10 +27,23 @@ export function CustomerCombobox({
   const [search, setSearch] = useState("");
   const selectedCustomer = useCopilotStore((state) => state.selectedCustomer);
   const setCustomer = useCopilotStore((state) => state.setCustomer);
+  const customers = useCopilotStore((s) => s.customers);
+  const setCustomers = useCopilotStore((s) => s.setCustomers);
 
-  // In a real app, this would fetch from an API
-  // For now, we'll use the hardcoded CUSTOMERS array
-  const customers = CUSTOMERS;
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/companies/list", { cache: "no-store" });
+        const json = await res.json();
+        if (!ignore && json?.ok && Array.isArray(json.customers)) setCustomers(json.customers);
+      } catch {}
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [setCustomers]);
 
   const handleSelect = useCallback(
     (customerId: string) => {

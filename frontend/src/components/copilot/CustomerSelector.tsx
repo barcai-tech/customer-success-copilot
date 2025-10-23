@@ -1,12 +1,28 @@
 "use client";
 
 import { Building2, Check } from "lucide-react";
-import { useCopilotStore, CUSTOMERS } from "@/src/store/copilot-store";
+import { useEffect } from "react";
+import { useCopilotStore } from "@/src/store/copilot-store";
 import { cn } from "@/src/lib/utils";
 
 export function CustomerSelector() {
-  const { selectedCustomer, setCustomer, status } = useCopilotStore();
+  const { selectedCustomer, setCustomer, status, customers, setCustomers } = useCopilotStore();
   const isDisabled = status === "running";
+
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/companies/list", { cache: "no-store" });
+        const json = await res.json();
+        if (!ignore && json?.ok && Array.isArray(json.customers)) setCustomers(json.customers);
+      } catch {}
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [setCustomers]);
 
   return (
     <div className="space-y-3">
@@ -16,7 +32,7 @@ export function CustomerSelector() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {CUSTOMERS.map((customer) => {
+        {customers.map((customer) => {
           const isSelected = selectedCustomer?.id === customer.id;
 
           return (

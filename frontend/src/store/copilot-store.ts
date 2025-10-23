@@ -24,6 +24,7 @@ export interface CopilotState {
   // Selection (for presets)
   selectedCustomer: Customer | null;
   selectedTask: TaskType | null;
+  customers: Customer[];
 
   // Chat
   messages: ChatMessage[];
@@ -39,6 +40,7 @@ export interface CopilotState {
   // Actions - Selection
   setCustomer: (customer: Customer | null) => void;
   setTask: (task: TaskType | null) => void;
+  setCustomers: (customers: Customer[]) => void;
 
   // Actions - Chat
   setInputValue: (value: string) => void;
@@ -60,11 +62,7 @@ export interface CopilotState {
 }
 
 // Available customers
-export const CUSTOMERS: Customer[] = [
-  { id: "acme-001", name: "Acme Corp" },
-  { id: "globex-001", name: "Globex Corporation" },
-  { id: "initech-001", name: "Initech" },
-];
+export const CUSTOMERS: Customer[] = [];
 
 // Task definitions
 export const TASKS: Record<
@@ -105,6 +103,7 @@ export const useCopilotStore = create<CopilotState>((set, _get) => ({
   // Initial state
   selectedCustomer: null,
   selectedTask: null,
+  customers: [],
   messages: [],
   inputValue: "",
   status: "idle",
@@ -117,6 +116,7 @@ export const useCopilotStore = create<CopilotState>((set, _get) => ({
   setCustomer: (customer) =>
     set({ selectedCustomer: customer, result: null, error: null }),
   setTask: (task) => set({ selectedTask: task, result: null, error: null }),
+  setCustomers: (customers) => set({ customers }),
 
   // Actions - Chat
   setInputValue: (value) => set({ inputValue: value }),

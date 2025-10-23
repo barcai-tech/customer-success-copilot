@@ -1,6 +1,10 @@
 "use server";
 
-import { CUSTOMERS, type TaskType } from "@/src/store/copilot-store";
+import type { TaskType } from "@/src/store/copilot-store";
+import { db } from "@/src/db/client";
+import { companies } from "@/src/db/schema";
+import { auth } from "@clerk/nextjs/server";
+import { inArray } from "drizzle-orm";
 
 export interface ParsedIntent {
   customerId?: string;
@@ -34,9 +38,29 @@ function variantsForName(name: string): string[] {
   return Array.from(new Set([n, filtered.join(" "), ...(filtered.length ? filtered : [])]));
 }
 
-function matchCustomer(text: string): string | undefined {
+async function resolveCustomers(): Promise<Array<{ id: string; name: string }>> {
+  const { userId } = auth();
+  const owners = userId ? ["public", userId] : ["public"];
+  const rows = await db
+    .select({ id: companies.externalId, name: companies.name, owner: companies.ownerUserId })
+    .from(companies)
+    .where(inArray(companies.ownerUserId, owners));
+  // Deduplicate by external id, prefer user-owned if present (processed in query order undefined; leave as is)
+  const seen = new Set<string>();
+  const out: Array<{ id: string; name: string }> = [];
+  for (const r of rows) {
+    if (!seen.has(r.id)) {
+      seen.add(r.id);
+      out.push({ id: r.id, name: r.name });
+    }
+  }
+  return out;
+}
+
+async function matchCustomer(text: string): Promise<string | undefined> {
   const t = normalize(text);
-  for (const c of CUSTOMERS) {
+  const all = await resolveCustomers();
+  for (const c of all) {
     const candidates = new Set<string>([normalize(c.id), ...variantsForName(c.name)]);
     for (const cand of candidates) {
       if (!cand) continue;
@@ -47,7 +71,7 @@ function matchCustomer(text: string): string | undefined {
 }
 
 export async function parseIntent(message: string): Promise<ParsedIntent> {
-  const customerId = matchCustomer(message);
+  const customerId = await matchCustomer(message);
   const task = matchTask(message);
   return { customerId, task };
 }
