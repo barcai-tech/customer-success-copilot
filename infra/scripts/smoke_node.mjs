@@ -35,8 +35,9 @@ async function callTool(endpoint, bodyObj) {
   console.log(text);
 }
 
-const reqUsage = { customerId: CUSTOMER_ID, params: { periodDays: 30 } };
-const req = { customerId: CUSTOMER_ID, params: {} };
+const OWNER = process.env.OWNER_USER_ID || 'public';
+const reqUsage = { customerId: CUSTOMER_ID, params: { periodDays: 30, ownerUserId: OWNER } };
+const req = { customerId: CUSTOMER_ID, params: { ownerUserId: OWNER } };
 
 await callTool('get_customer_usage', reqUsage);
 await callTool('get_recent_tickets', req);
@@ -44,4 +45,3 @@ await callTool('get_contract_info', req);
 await callTool('calculate_health', req);
 await callTool('generate_email', req);
 await callTool('generate_qbr_outline', req);
-

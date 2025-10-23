@@ -56,3 +56,6 @@ infra/.aws-sam/
 docs/*.zip
 docs/**/*.zip
 docs/_preview/
+
+# Vendored Lambda layer dependencies (rebuilt locally at deploy time)
+infra/layers/common/python/**

@@ -4,12 +4,15 @@ TEMPLATE?= sam-template.yaml
 REGION  ?= ap-southeast-1
 
 .PHONY: build buildc deploy sync-sample help clean-sam smoke-curl smoke-node
+ .PHONY: layer-pydeps layer-pydeps-docker
 
 help:
 	@echo "Targets:"
 	@echo "  make build           # sam build (clean)"
 	@echo "  make buildc          # sam build using container"
 	@echo "  make deploy          # sam deploy with saved params (samconfig.toml)"
+	@echo "  make layer-pydeps    # install pure-Python deps into Lambda layer (local pip)"
+	@echo "  make layer-pydeps-docker # install deps into layer using SAM python build image"
 	@echo "  make sync-sample     # copy backend/sample_data to S3 (requires DATA_BUCKET=...)"
 	@echo "Vars: PROFILE=$(PROFILE) STACK=$(STACK) REGION=$(REGION) TEMPLATE=$(TEMPLATE)"
 
@@ -28,7 +31,11 @@ buildc:
 	sam build -t $(TEMPLATE) --use-container --region $(REGION)
 
 deploy:
+ifeq ($(strip $(PARAMETER_OVERRIDES)),)
 	sam deploy -t $(TEMPLATE) --stack-name $(STACK) --capabilities CAPABILITY_IAM --profile $(PROFILE) --region $(REGION) --no-fail-on-empty-changeset
+else
+	sam deploy -t $(TEMPLATE) --stack-name $(STACK) --capabilities CAPABILITY_IAM --profile $(PROFILE) --region $(REGION) --no-fail-on-empty-changeset --parameter-overrides $(PARAMETER_OVERRIDES)
+endif
 
 sync-sample:
 	@if [ -z "$(DATA_BUCKET)" ]; then echo "Set DATA_BUCKET=<your-s3-bucket>"; exit 1; fi
@@ -52,3 +59,19 @@ smoke-node:
 	@if [ -z "$(HMAC_SECRET)" ]; then echo "Set HMAC_SECRET to your shared secret"; exit 1; fi
 	@if [ -z "$(CUSTOMER_ID)" ]; then echo "Set CUSTOMER_ID to e.g., acme-001"; exit 1; fi
 	API_URL="$(API_URL)" HMAC_SECRET="$(HMAC_SECRET)" CUSTOMER_ID="$(CUSTOMER_ID)" CLIENT_ID="$(CLIENT_ID)" node scripts/smoke_node.mjs
+
+# -----------------------------------------------------------------------------
+# Lambda Layer dependency helpers
+# -----------------------------------------------------------------------------
+
+layer-pydeps:
+	@echo "Installing pg8000 into Lambda common layer (local pip)…"
+	mkdir -p layers/common/python
+	python3 -m pip install -t layers/common/python pg8000==1.30.5
+	@echo "Done. Rebuild and deploy to publish a new layer version."
+
+layer-pydeps-docker:
+	@echo "Installing pg8000 into Lambda common layer using SAM Python 3.12 build image…"
+	mkdir -p layers/common/python
+	docker run --rm -v "$$PWD/layers/common/python:/opt" public.ecr.aws/sam/build-python3.12:latest sh -c "pip install --no-cache-dir -t /opt pg8000==1.30.5"
+	@echo "Done. Rebuild and deploy to publish a new layer version."

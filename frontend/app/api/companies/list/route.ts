@@ -8,10 +8,11 @@ import { GLOBAL_COMPANIES, GLOBAL_CONTRACTS, GLOBAL_TICKETS, GLOBAL_USAGE } from
 export const dynamic = "force-dynamic";
 
 async function seedUserIfEmpty(ownerUserId: string) {
-  const [{ value: c }] = (await db
+  const result = await db
     .select({ value: count() })
     .from(companies)
-    .where(eq(companies.ownerUserId, ownerUserId))) as Array<{ value: number }>;
+    .where(eq(companies.ownerUserId, ownerUserId));
+  const c = Number(result?.[0]?.value ?? 0);
   if (c > 0) return;
 
   // Seed same demo set for this user
@@ -58,4 +59,3 @@ export async function GET(_req: NextRequest) {
     headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
   });
 }
-

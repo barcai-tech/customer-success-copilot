@@ -16,6 +16,10 @@ Parameters:
   DataBucket:
     Type: String
     Default: ""
+  DatabaseUrl:
+    Type: String
+    Default: ""
+    Description: "Postgres connection string for Neon (e.g., postgresql://.../?sslmode=require)"
 
 Conditions:
   HasDataBucket: !Not [!Equals [!Ref DataBucket, ""]]
@@ -32,6 +36,7 @@ Globals:
         HMAC_PARAM_NAME: !Ref HmacParamName
         HMAC_SECRET: ""
         DATA_BUCKET: !If [HasDataBucket, !Ref DataBucket, ""]
+        DATABASE_URL: !Ref DatabaseUrl
 
 Resources:
   CommonLayer:

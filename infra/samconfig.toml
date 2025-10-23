@@ -8,7 +8,7 @@ profile = "cs-copilot"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 disable_rollback = true
-parameter_overrides = "StageName=\"dev\" AllowedOrigin=\"http://localhost:3000\" HmacParamName=\"/copilot/hmac/v1\" DataBucket=\"barcai-cs-success-copilot\""
+parameter_overrides = "StageName=\"dev\" AllowedOrigin=\"http://localhost:3000\" HmacParamName=\"/copilot/hmac/v1\" DataBucket=\"barcai-cs-success-copilot\" DatabaseUrl=\"\""
 image_repositories = []
 
 [default.global.parameters]
