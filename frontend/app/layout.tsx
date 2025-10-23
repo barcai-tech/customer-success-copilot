@@ -4,7 +4,7 @@ import "./globals.css";
 import Header from "@/src/components/Header";
 import Footer from "@/src/components/Footer";
 import Providers from "@/src/components/Providers";
-import { Toaster } from "sonner";
+import { Toaster } from "@/src/components/ui/sonner";
 
 const inter = Inter({
   subsets: ["latin", "latin-ext"],
@@ -41,13 +41,13 @@ export default function RootLayout({
       <body className="flex flex-col min-h-dvh">
         <Providers>
           <Header />
-          <main className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 flex flex-col overflow-hidden mx-auto w-full max-w-[1600px]">
             {children}
           </main>
           <Footer />
 
           {/* Toast Notifications */}
-          <Toaster richColors position="top-right" />
+          <Toaster />
         </Providers>
       </body>
     </html>

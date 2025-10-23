@@ -30,12 +30,15 @@ export function CopilotDashboard() {
     try {
       // Prefer streaming endpoint for progressive updates
       const params = new URLSearchParams({ message });
-      if (selectedCustomer?.id) params.set("selectedCustomerId", selectedCustomer.id);
+      if (selectedCustomer?.id)
+        params.set("selectedCustomerId", selectedCustomer.id);
 
       // Start a placeholder assistant message to stream into
       useCopilotStore.getState().beginAssistantMessage("Preparing...");
 
-      const source = new EventSource(`/api/copilot/stream?${params.toString()}`);
+      const source = new EventSource(
+        `/api/copilot/stream?${params.toString()}`
+      );
       useCopilotStore.getState().setStream(source);
       source.addEventListener("plan", (ev) => {
         try {
@@ -53,18 +56,27 @@ export function CopilotDashboard() {
         try {
           const data = JSON.parse(ev.data) as { name: string };
           const st = useCopilotStore.getState();
-          const current = st.messages.find((m) => m.id === st.activeAssistantId);
-          const used = [...((current?.result?.usedTools || []))];
-          if (!used.some((u) => u.name === data.name)) used.push({ name: data.name });
+          const current = st.messages.find(
+            (m) => m.id === st.activeAssistantId
+          );
+          const used = [...(current?.result?.usedTools || [])];
+          if (!used.some((u) => u.name === data.name))
+            used.push({ name: data.name });
           st.patchActiveAssistantResult({ usedTools: used });
         } catch {}
       });
       source.addEventListener("tool:end", (ev: MessageEvent) => {
         try {
-          const data = JSON.parse(ev.data) as { name: string; tookMs?: number; error?: string };
+          const data = JSON.parse(ev.data) as {
+            name: string;
+            tookMs?: number;
+            error?: string;
+          };
           const st = useCopilotStore.getState();
-          const current = st.messages.find((m) => m.id === st.activeAssistantId);
-          const used = [...((current?.result?.usedTools || []))];
+          const current = st.messages.find(
+            (m) => m.id === st.activeAssistantId
+          );
+          const used = [...(current?.result?.usedTools || [])];
           const idx = used.findIndex((u) => u.name === data.name);
           if (idx >= 0) used[idx] = { ...used[idx], ...data };
           else used.push(data);
@@ -83,8 +95,18 @@ export function CopilotDashboard() {
           if (data.planSource === "heuristic" && data.planHint) {
             toast("LLM planner fallback", { description: data.planHint });
           }
-          useCopilotStore.getState().finalizeActiveAssistant(data, data.summary || "Here are the results:");
-          toast.success("Plan complete", { description: data.planSource === "llm" ? "LLM plan finished." : "Heuristic plan finished." });
+          useCopilotStore
+            .getState()
+            .finalizeActiveAssistant(
+              data,
+              data.summary || "Here are the results:"
+            );
+          toast.success("Plan complete", {
+            description:
+              data.planSource === "llm"
+                ? "LLM plan finished."
+                : "Heuristic plan finished.",
+          });
         } catch (e) {
           const msg = e instanceof Error ? e.message : "Failed to parse final";
           setError(msg);
@@ -99,8 +121,13 @@ export function CopilotDashboard() {
         useCopilotStore.getState().setStream(null);
       });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred";
-      addMessage({ role: "assistant", content: "I encountered an error while processing your request.", error: errorMessage });
+      const errorMessage =
+        error instanceof Error ? error.message : "An unexpected error occurred";
+      addMessage({
+        role: "assistant",
+        content: "I encountered an error while processing your request.",
+        error: errorMessage,
+      });
       setError(errorMessage);
     }
   };
@@ -122,7 +149,7 @@ export function CopilotDashboard() {
       )}
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden md:order-1">
+      <div className="flex-1 flex flex-col h-full overflow-hidden md:order-1 px-4 md:px-6 lg:px-8">
         {/* Messages */}
         <div className="flex-1 overflow-hidden">
           <MessageList />
