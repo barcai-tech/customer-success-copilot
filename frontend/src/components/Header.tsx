@@ -8,6 +8,7 @@ import PageContainer from "@/src/components/PageContainer";
 import { NavMenu } from "@/src/components/NavMenu";
 import MobileMenu from "@/src/components/MobileMenu";
 import { ModeToggle } from "@/src/components/ModeToggle";
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
 export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -39,11 +40,22 @@ export default function Header() {
         <div className="hidden sm:flex items-center space-x-4">
           <NavMenu />
           <ModeToggle />
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
+          <SignedOut>
+            <SignInButton>
+              <Button variant="default" size="sm">Sign in</Button>
+            </SignInButton>
+          </SignedOut>
         </div>
 
         {/* Mobile Mode Toggle (visible on small screens) */}
-        <div className="sm:hidden">
+        <div className="sm:hidden flex items-center gap-2">
           <ModeToggle />
+          <SignedIn>
+            <UserButton afterSignOutUrl="/" />
+          </SignedIn>
         </div>
 
         {/* Mobile Menu */}
