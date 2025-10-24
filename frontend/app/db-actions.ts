@@ -6,7 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@clerk/nextjs/server";
 
 export async function upsertCompanyByExternalId(externalId: string, name: string) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const existing = await db
     .select()
@@ -24,7 +24,7 @@ export async function saveMessage(args: {
   content: string;
   resultJson?: unknown;
 }) {
-  const { userId } = auth();
+  const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const [inserted] = await db
     .insert(messages)

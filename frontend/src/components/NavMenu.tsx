@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BookOpen } from "lucide-react";
+import { Home, BookOpen, Table } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 
 const navItems = [
@@ -10,6 +10,11 @@ const navItems = [
     href: "/",
     label: "Home",
     icon: Home,
+  },
+  {
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: Table,
   },
   {
     href: "/docs",

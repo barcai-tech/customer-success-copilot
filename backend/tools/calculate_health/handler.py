@@ -57,14 +57,16 @@ def _handle(event):
         trend = usage.get("trend", "flat")
         open_tickets = int(tickets.get("openTickets", 0))
         renewal_date = contract.get("renewalDate")
-        if not renewal_date:
-            raise FileNotFoundError("Missing renewalDate")
-
-        # Parse ISO8601, tolerate trailing 'Z'
-        rd = renewal_date.replace("Z", "+00:00") if isinstance(renewal_date, str) else renewal_date
-        dt = datetime.fromisoformat(rd)
-        now = datetime.now(timezone.utc)
-        days_until = max(0, (dt - now).days)
+        days_until = 180
+        if isinstance(renewal_date, str) and renewal_date:
+            # Parse ISO8601, tolerate trailing 'Z'
+            rd = renewal_date.replace("Z", "+00:00")
+            try:
+                dt = datetime.fromisoformat(rd)
+                now = datetime.now(timezone.utc)
+                days_until = max(0, (dt - now).days)
+            except Exception:
+                days_until = 180
 
         usage_component = _score_from_usage(trend) * 0.45
         ticket_component = _score_from_tickets(open_tickets) * 0.35
@@ -88,7 +90,9 @@ def _handle(event):
         return ok(payload)
 
     except FileNotFoundError:
-        return error(404, "MISSING_DATA", "Missing data for scoring")
+        # Gracefully return a neutral score when any source data is missing
+        payload = {"score": 60, "riskLevel": _risk_level(60), "signals": ["usage_flat"]}
+        return ok(payload)
     except ValueError as ve:
         msg = str(ve)
         code = "INVALID_INPUT" if "INVALID_" in msg else "UNAUTHORIZED"

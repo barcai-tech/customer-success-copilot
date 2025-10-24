@@ -16,16 +16,18 @@ export const UsageSchema = z.object({
   trend: z.enum(["up", "down", "flat"]),
   avgDailyUsers: z.number(),
   sparkline: z.array(z.number()),
+  missingData: z.boolean().optional(),
 });
 
 export const TicketsSchema = z.object({
   openTickets: z.number(),
   recentTickets: z.array(z.object({ id: z.string(), severity: z.string() })),
+  missingData: z.boolean().optional(),
 });
 
 export const ContractSchema = z.object({
-  renewalDate: z.string(),
-  arr: z.number(),
+  renewalDate: z.string().optional().nullable(),
+  arr: z.number().optional().default(0),
 });
 
 export const HealthSchema = z.object({
@@ -49,4 +51,3 @@ export type Contract = z.infer<typeof ContractSchema>;
 export type Health = z.infer<typeof HealthSchema>;
 export type Email = z.infer<typeof EmailSchema>;
 export type Qbr = z.infer<typeof QbrSchema>;
-

@@ -128,7 +128,7 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
 
         // Normalize envelope
         const customerId: string | undefined = args.customerId ?? selectedCustomerId;
-        const { userId } = auth();
+        const { userId } = await auth();
         const params: Record<string, unknown> = { ...(args.params ?? {}), ownerUserId: userId ?? "public" };
         if (!customerId) {
           usedTools.push({ name, error: "MISSING_CUSTOMER_ID" });
@@ -391,7 +391,7 @@ export async function runLlmPlanner(prompt: string, selectedCustomerId?: string)
     if (!out.health && resolvedCustomerId) {
       try {
         const t0h = performance.now();
-        const { userId } = auth();
+        const { userId } = await auth();
         const resH = await invokeTool<Health>("calculate_health", { customerId: resolvedCustomerId, params: { ownerUserId: userId ?? "public" } }, HealthSchema);
         const t1h = performance.now();
         if (resH.ok) {

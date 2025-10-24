@@ -13,15 +13,13 @@ export function CustomerSelector() {
     let ignore = false;
     const load = async () => {
       try {
-        const res = await fetch("/api/companies/list", { cache: "no-store" });
-        const json = await res.json();
-        if (!ignore && json?.ok && Array.isArray(json.customers)) setCustomers(json.customers);
+        const { listCompaniesForViewer } = await import("@/app/actions");
+        const list = await listCompaniesForViewer();
+        if (!ignore && Array.isArray(list)) setCustomers(list as any);
       } catch {}
     };
     load();
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [setCustomers]);
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { Clock, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Badge } from "@/src/components/ui/badge";
 import type { PlannerResult } from "@/src/agent/planner";
 import { cn } from "@/src/lib/utils";
 
@@ -49,6 +50,9 @@ export function ToolExecutionTimeline({ tools, isRunning = false, embedded = fal
                   >
                     {tool.name}
                   </span>
+                  {tool.missing && !hasError && (
+                    <div className="mt-1"><Badge color="yellow">missing</Badge></div>
+                  )}
                   {tool.reason && (
                     <span className="text-xs text-muted-foreground mt-0.5">
                       {tool.reason}

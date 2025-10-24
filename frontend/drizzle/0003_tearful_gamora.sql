@@ -1,0 +1,3 @@
+ALTER TABLE "contracts" ADD CONSTRAINT "contracts_owner_user_id_company_external_id_pk" PRIMARY KEY("owner_user_id","company_external_id");--> statement-breakpoint
+ALTER TABLE "ticket_summaries" ADD CONSTRAINT "ticket_summaries_owner_user_id_company_external_id_pk" PRIMARY KEY("owner_user_id","company_external_id");--> statement-breakpoint
+ALTER TABLE "usage_summaries" ADD CONSTRAINT "usage_summaries_owner_user_id_company_external_id_pk" PRIMARY KEY("owner_user_id","company_external_id");

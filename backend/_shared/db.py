@@ -76,13 +76,9 @@ def get_usage(owner_user_id: str, company_external_id: str) -> Dict[str, Any]:
         (owner_user_id, company_external_id),
     )
     if not row:
-        raise FileNotFoundError("usage not found")
+        return {"trend": "flat", "avgDailyUsers": 0, "sparkline": [], "missingData": True}
     trend, avg_daily_users, sparkline = row
-    return {
-        "trend": trend,
-        "avgDailyUsers": int(avg_daily_users),
-        "sparkline": sparkline or [],
-    }
+    return {"trend": trend, "avgDailyUsers": int(avg_daily_users or 0), "sparkline": sparkline or [], "missingData": False}
 
 
 def get_tickets(owner_user_id: str, company_external_id: str) -> Dict[str, Any]:
@@ -98,12 +94,9 @@ def get_tickets(owner_user_id: str, company_external_id: str) -> Dict[str, Any]:
         (owner_user_id, company_external_id),
     )
     if not row:
-        raise FileNotFoundError("tickets not found")
+        return {"openTickets": 0, "recentTickets": [], "missingData": True}
     open_tickets, recent_tickets = row
-    return {
-        "openTickets": int(open_tickets or 0),
-        "recentTickets": recent_tickets or [],
-    }
+    return {"openTickets": int(open_tickets or 0), "recentTickets": recent_tickets or [], "missingData": False}
 
 
 def get_contract(owner_user_id: str, company_external_id: str) -> Dict[str, Any]:
@@ -119,9 +112,6 @@ def get_contract(owner_user_id: str, company_external_id: str) -> Dict[str, Any]
         (owner_user_id, company_external_id),
     )
     if not row:
-        raise FileNotFoundError("contract not found")
+        return {"renewalDate": None, "arr": 0, "missingData": True}
     renewal_date, arr = row
-    return {
-        "renewalDate": renewal_date,
-        "arr": int(arr or 0),
-    }
+    return {"renewalDate": renewal_date, "arr": int(arr or 0), "missingData": False}

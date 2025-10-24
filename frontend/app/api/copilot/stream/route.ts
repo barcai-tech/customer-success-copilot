@@ -74,9 +74,10 @@ export async function GET(req: NextRequest) {
         }
 
         const tools = getToolRegistry();
-        const { userId } = auth();
+        const { userId } = await auth();
         const ownerUserId = userId ?? "public";
         const usedTools: Array<{ name: string; tookMs?: number; error?: string }> = [];
+        const missingNotes = new Set<string>();
         const cache: Partial<ToolDataMap> = {};
         const messages: LlmMessage[] = [
           {
@@ -228,11 +229,12 @@ export async function GET(req: NextRequest) {
                 const params = { ...(args.params || {}), ownerUserId };
                 send("tool:start", { name });
                 let envelope: ResponseEnvelope<unknown> | { ok: false; data: null; error: { code: string; message: string } };
-                const endRecord: { name: string; tookMs?: number; error?: string } = { name };
+                const endRecord: { name: string; tookMs?: number; error?: string; missing?: boolean } = { name };
                 try {
                   const schema = TOOL_SCHEMAS[name];
                   const t0 = performance.now();
-                  const res = await invokeTool(name, { customerId: cid, params }, schema);
+                  let res = await invokeTool(name, { customerId: cid, params }, schema);
+                  // No automatic public fallback for logged-in users; let the plan work with partials
                   const t1 = performance.now();
                   if (res.ok) {
                     endRecord.tookMs = Math.round(t1 - t0);
@@ -263,6 +265,16 @@ export async function GET(req: NextRequest) {
                         cache.generate_qbr_outline = (res as EnvelopeSuccess<Qbr>).data;
                         break;
                     }
+                    // If the tool indicates missingData, track a note
+                    try {
+                      const d: any = (res as EnvelopeSuccess<any>).data;
+                      if (d && d.missingData) {
+                        endRecord.missing = true;
+                        if (name === "get_customer_usage") missingNotes.add("usage");
+                        if (name === "get_recent_tickets") missingNotes.add("tickets");
+                        if (name === "get_contract_info") missingNotes.add("contract");
+                      }
+                    } catch {}
                     if (name === "calculate_health") send("patch", { health: cache.calculate_health });
                     if (name === "generate_email") send("patch", { emailDraft: cache.generate_email });
                     if (name === "generate_qbr_outline") send("patch", { actions: cache.generate_qbr_outline?.sections || [] });
@@ -271,6 +283,7 @@ export async function GET(req: NextRequest) {
                     const patch: Record<string, unknown> = {};
                     if (summary) patch.summary = summary;
                     if (actions && actions.length) patch.actions = actions;
+                    if (missingNotes.size) patch.notes = `Some data unavailable: ${Array.from(missingNotes).join(", ")}`;
                     if (Object.keys(patch).length) send("patch", patch);
                   }
                 } catch (e) {
@@ -331,6 +344,7 @@ export async function GET(req: NextRequest) {
           out.customerId = customerId;
           if (task) out.task = task;
           out.usedTools = usedTools;
+          if (missingNotes.size && !out.notes) out.notes = `Some data unavailable: ${Array.from(missingNotes).join(", ")}`;
           send("final", sanitizePlannerResult(out));
           return close();
         }

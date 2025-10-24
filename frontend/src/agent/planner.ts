@@ -21,7 +21,7 @@ export interface PlannerResult {
   health?: Health;
   actions?: string[];
   emailDraft?: Email;
-  usedTools: Array<{ name: string; tookMs?: number; error?: string; reason?: string }>;
+  usedTools: Array<{ name: string; tookMs?: number; error?: string; reason?: string; missing?: boolean }>;
   notes?: string;
   decisionLog?: Array<{ step?: number; tool?: string; action?: string; reason: string }>;
   planSource?: "llm" | "heuristic";

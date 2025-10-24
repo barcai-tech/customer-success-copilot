@@ -3,11 +3,29 @@
 import { runPlanner } from "@/src/agent/planner";
 import { parseIntent } from "@/src/agent/intent";
 import { runLlmPlanner } from "@/src/agent/llmPlanner";
+import { auth } from "@clerk/nextjs/server";
+import { db } from "@/src/db/client";
+import { companies } from "@/src/db/schema";
+import { inArray } from "drizzle-orm";
 
 export type PlannerActionState =
   | { ok: true; result: Awaited<ReturnType<typeof runPlanner>> }
   | { ok?: false; error: string }
   | undefined;
+
+// Shared server action: list companies for current viewer (public + user-owned)
+export async function listCompaniesForViewer() {
+  const { userId } = await auth();
+  const owners = userId ? ["public", userId] : ["public"];
+  const rows = await db
+    .select({ id: companies.externalId, name: companies.name, owner: companies.ownerUserId })
+    .from(companies)
+    .where(inArray(companies.ownerUserId, owners));
+  // Deduplicate by id, prefer user-owned last write wins
+  const map = new Map<string, { id: string; name: string }>();
+  for (const r of rows) map.set(r.id, { id: r.id, name: r.name });
+  return Array.from(map.values());
+}
 
 export async function runPlannerAction(prevState: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
   const customerId = String(formData.get("customerId") || "").trim();

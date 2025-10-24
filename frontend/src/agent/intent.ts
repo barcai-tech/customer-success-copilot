@@ -39,7 +39,7 @@ function variantsForName(name: string): string[] {
 }
 
 async function resolveCustomers(): Promise<Array<{ id: string; name: string }>> {
-  const { userId } = auth();
+  const { userId } = await auth();
   const owners = userId ? ["public", userId] : ["public"];
   const rows = await db
     .select({ id: companies.externalId, name: companies.name, owner: companies.ownerUserId })

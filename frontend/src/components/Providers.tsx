@@ -4,7 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider>
+    <ClerkProvider afterSignInUrl="/dashboard" afterSignUpUrl="/dashboard" signInUrl="/sign-in" signUpUrl="/sign-up">
       <ThemeProvider
         attribute="class"
         defaultTheme="system"

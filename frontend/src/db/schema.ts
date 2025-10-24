@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp, jsonb, uuid, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, jsonb, uuid, index, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 export const companies = pgTable(
@@ -51,6 +51,8 @@ export const contracts = pgTable(
   (t) => ({
     contractsOwnerIdx: index("contracts_owner_idx").on(t.ownerUserId),
     contractsCompanyIdx: index("contracts_company_idx").on(t.companyExternalId),
+    // Enforce one row per (owner, company)
+    contractsPk: primaryKey({ columns: [t.ownerUserId, t.companyExternalId] }),
   })
 );
 
@@ -66,6 +68,7 @@ export const usageSummaries = pgTable(
   (t) => ({
     usageOwnerIdx: index("usage_owner_idx").on(t.ownerUserId),
     usageCompanyIdx: index("usage_company_idx").on(t.companyExternalId),
+    usagePk: primaryKey({ columns: [t.ownerUserId, t.companyExternalId] }),
   })
 );
 
@@ -80,5 +83,6 @@ export const ticketSummaries = pgTable(
   (t) => ({
     ticketsOwnerIdx: index("tickets_owner_idx").on(t.ownerUserId),
     ticketsCompanyIdx: index("tickets_company_idx").on(t.companyExternalId),
+    ticketsPk: primaryKey({ columns: [t.ownerUserId, t.companyExternalId] }),
   })
 );

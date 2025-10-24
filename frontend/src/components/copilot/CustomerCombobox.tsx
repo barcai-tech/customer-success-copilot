@@ -2,14 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "cmdk";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/src/components/ui/command";
 import { Button } from "../ui/button";
 import { useEffect } from "react";
 import { useCopilotStore } from "../../store/copilot-store";
@@ -34,15 +27,13 @@ export function CustomerCombobox({
     let ignore = false;
     const load = async () => {
       try {
-        const res = await fetch("/api/companies/list", { cache: "no-store" });
-        const json = await res.json();
-        if (!ignore && json?.ok && Array.isArray(json.customers)) setCustomers(json.customers);
+        const { listCompaniesForViewer } = await import("@/app/actions");
+        const list = await listCompaniesForViewer();
+        if (!ignore && Array.isArray(list)) setCustomers(list as any);
       } catch {}
     };
     load();
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [setCustomers]);
 
   const handleSelect = useCallback(
