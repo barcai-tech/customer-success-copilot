@@ -13,16 +13,26 @@ def _handle(event):
         require_hmac(event)
         customer_id, params = parse_envelope(event.get("body") or "")
         owner = (params or {}).get("ownerUserId") or "public"
-        payload = get_contract(owner, customer_id)
+        try:
+            payload = get_contract(owner, customer_id)
+        except Exception as e:
+            try:
+                payload = get_contract(owner, customer_id)
+            except Exception:
+                payload = {"renewalDate": None, "arr": 0, "missingData": True}
+        print(json.dumps({"type":"TOOL_LOG","tool":"get_contract_info","owner":owner,"customerId":customer_id,"missing":bool(payload.get("missingData"))}))
         return ok(payload)
 
     except FileNotFoundError:
-        return error(404, "MISSING_DATA", "Contract data not found")
+        print(json.dumps({"type":"TOOL_LOG","tool":"get_contract_info","error":"MISSING_DATA"}))
+        return ok({"renewalDate": None, "arr": 0, "missingData": True})
     except ValueError as ve:
         msg = str(ve)
         code = "INVALID_INPUT" if "INVALID_" in msg else "UNAUTHORIZED"
+        print(json.dumps({"type":"TOOL_LOG","tool":"get_contract_info","error":code}))
         return error(400 if code == "INVALID_INPUT" else 401, code, msg)
     except Exception as e:
+        print(json.dumps({"type":"TOOL_LOG","tool":"get_contract_info","error":"EXCEPTION","ex":type(e).__name__}))
         return error(500, "TOOL_FAILURE", f"{type(e).__name__}")
 
 

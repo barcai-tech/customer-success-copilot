@@ -13,6 +13,7 @@ except Exception:  # boto3 not required for local dev
 
 
 MAX_SKEW_MS = 5 * 60 * 1000  # 5 minutes
+HMAC_DEBUG = os.environ.get("HMAC_DEBUG", "0") == "1"
 
 
 def _get_header(headers: Dict[str, str], name: str) -> str:
@@ -70,10 +71,15 @@ def verify_headers(headers: Dict[str, str], raw_body: str) -> Tuple[str, str]:
     try:
         ts = int(timestamp)
     except Exception:
+        if HMAC_DEBUG:
+            print(json.dumps({"type": "HMAC_DEBUG", "reason": "INVALID_TIMESTAMP", "client": client, "timestamp": timestamp}))
         raise ValueError("Invalid X-Timestamp")
 
     now_ms = int(time.time() * 1000)
-    if abs(now_ms - ts) > MAX_SKEW_MS:
+    skew = now_ms - ts
+    if abs(skew) > MAX_SKEW_MS:
+        if HMAC_DEBUG:
+            print(json.dumps({"type": "HMAC_DEBUG", "reason": "TS_SKEW", "client": client, "skewMs": skew}))
         raise ValueError("Expired or future timestamp")
 
     body_for_signing = raw_body or ""
@@ -85,8 +91,28 @@ def verify_headers(headers: Dict[str, str], raw_body: str) -> Tuple[str, str]:
             canonical = json.dumps(parsed, separators=(",", ":"), ensure_ascii=False)
             expected2 = sign(secret, timestamp, client, canonical)
             if not hmac.compare_digest(expected2, signature):
+                if HMAC_DEBUG:
+                    body_hash = hashlib.sha256((body_for_signing or "").encode("utf-8")).hexdigest()[:12]
+                    print(json.dumps({
+                        "type": "HMAC_DEBUG",
+                        "reason": "SIG_MISMATCH",
+                        "client": client,
+                        "ts": timestamp,
+                        "bodyLen": len(body_for_signing or ""),
+                        "bodyHash": body_hash
+                    }))
                 raise ValueError("Invalid signature")
         except Exception:
+            if HMAC_DEBUG:
+                body_hash = hashlib.sha256((body_for_signing or "").encode("utf-8")).hexdigest()[:12]
+                print(json.dumps({
+                    "type": "HMAC_DEBUG",
+                    "reason": "SIG_VERIFY_EXCEPTION",
+                    "client": client,
+                    "ts": timestamp,
+                    "bodyLen": len(body_for_signing or ""),
+                    "bodyHash": body_hash
+                }))
             raise ValueError("Invalid signature")
 
     return client, timestamp

@@ -1,5 +1,6 @@
 "use server";
 
+import { auth } from "@clerk/nextjs/server";
 import { invokeTool, type ResponseEnvelope } from "@/src/agent/invokeTool";
 import {
   UsageSchema,
@@ -21,9 +22,20 @@ export interface PlannerResult {
   health?: Health;
   actions?: string[];
   emailDraft?: Email;
-  usedTools: Array<{ name: string; tookMs?: number; error?: string; reason?: string; missing?: boolean }>;
+  usedTools: Array<{
+    name: string;
+    tookMs?: number;
+    error?: string;
+    reason?: string;
+    missing?: boolean;
+  }>;
   notes?: string;
-  decisionLog?: Array<{ step?: number; tool?: string; action?: string; reason: string }>;
+  decisionLog?: Array<{
+    step?: number;
+    tool?: string;
+    action?: string;
+    reason: string;
+  }>;
   planSource?: "llm" | "heuristic";
   planHint?: string;
   customerId?: string;
@@ -32,7 +44,11 @@ export interface PlannerResult {
 
 export type PlannerTask = "health" | "renewal" | "qbr" | "email" | "churn";
 
-async function timed<T>(fn: () => Promise<ResponseEnvelope<T>>, name: string, used: PlannerResult["usedTools"]) {
+async function timed<T>(
+  fn: () => Promise<ResponseEnvelope<T>>,
+  name: string,
+  used: PlannerResult["usedTools"]
+) {
   const t0 = performance.now();
   try {
     const out = await fn();
@@ -46,7 +62,10 @@ async function timed<T>(fn: () => Promise<ResponseEnvelope<T>>, name: string, us
   }
 }
 
-export async function runPlanner(customerId: string, task?: PlannerTask): Promise<PlannerResult> {
+export async function runPlanner(
+  customerId: string,
+  task?: PlannerTask
+): Promise<PlannerResult> {
   const usedTools: PlannerResult["usedTools"] = [];
   let usage: Usage | undefined;
   let tickets: Tickets | undefined;
@@ -55,11 +74,20 @@ export async function runPlanner(customerId: string, task?: PlannerTask): Promis
   let email: Email | undefined;
   let qbr: Qbr | undefined;
 
+  // Get authenticated user for ownerUserId
+  const { userId } = await auth();
+  const params = { ownerUserId: userId ?? "public" };
+
   // Branch execution by task for targeted results
   const runUsage = async () => {
     try {
       const r = await timed(
-        () => invokeTool<Usage>("get_customer_usage", { customerId, params: { periodDays: 30 } }, UsageSchema),
+        () =>
+          invokeTool<Usage>(
+            "get_customer_usage",
+            { customerId, params: { ...params, periodDays: 30 } },
+            UsageSchema
+          ),
         "get_customer_usage",
         usedTools
       );
@@ -69,7 +97,12 @@ export async function runPlanner(customerId: string, task?: PlannerTask): Promis
   const runTickets = async () => {
     try {
       const r = await timed(
-        () => invokeTool<Tickets>("get_recent_tickets", { customerId }, TicketsSchema),
+        () =>
+          invokeTool<Tickets>(
+            "get_recent_tickets",
+            { customerId, params },
+            TicketsSchema
+          ),
         "get_recent_tickets",
         usedTools
       );
@@ -79,7 +112,12 @@ export async function runPlanner(customerId: string, task?: PlannerTask): Promis
   const runContract = async () => {
     try {
       const r = await timed(
-        () => invokeTool<Contract>("get_contract_info", { customerId }, ContractSchema),
+        () =>
+          invokeTool<Contract>(
+            "get_contract_info",
+            { customerId, params },
+            ContractSchema
+          ),
         "get_contract_info",
         usedTools
       );
@@ -89,7 +127,12 @@ export async function runPlanner(customerId: string, task?: PlannerTask): Promis
   const runHealth = async () => {
     try {
       const r = await timed(
-        () => invokeTool<Health>("calculate_health", { customerId }, HealthSchema),
+        () =>
+          invokeTool<Health>(
+            "calculate_health",
+            { customerId, params },
+            HealthSchema
+          ),
         "calculate_health",
         usedTools
       );
@@ -99,7 +142,12 @@ export async function runPlanner(customerId: string, task?: PlannerTask): Promis
   const runEmail = async () => {
     try {
       const r = await timed(
-        () => invokeTool<Email>("generate_email", { customerId }, EmailSchema),
+        () =>
+          invokeTool<Email>(
+            "generate_email",
+            { customerId, params },
+            EmailSchema
+          ),
         "generate_email",
         usedTools
       );
@@ -109,7 +157,12 @@ export async function runPlanner(customerId: string, task?: PlannerTask): Promis
   const runQbr = async () => {
     try {
       const r = await timed(
-        () => invokeTool<Qbr>("generate_qbr_outline", { customerId }, QbrSchema),
+        () =>
+          invokeTool<Qbr>(
+            "generate_qbr_outline",
+            { customerId, params },
+            QbrSchema
+          ),
         "generate_qbr_outline",
         usedTools
       );
@@ -153,7 +206,9 @@ export async function runPlanner(customerId: string, task?: PlannerTask): Promis
   // Synthesize results based on what we have
   const summaryParts: string[] = [];
   if (task === "health" && health) {
-    summaryParts.push(`Health score ${health.score} (${health.riskLevel} risk)`);
+    summaryParts.push(
+      `Health score ${health.score} (${health.riskLevel} risk)`
+    );
   }
   if (usage) summaryParts.push(`Usage trend: ${usage.trend}`);
   if (tickets) summaryParts.push(`Open tickets: ${tickets.openTickets}`);

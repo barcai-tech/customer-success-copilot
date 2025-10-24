@@ -16,16 +16,26 @@ def _handle(event):
         customer_id, params = parse_envelope(event.get("body") or "")
         owner = (params or {}).get("ownerUserId") or "public"
 
-        payload = get_usage(owner, customer_id)
+        try:
+            payload = get_usage(owner, customer_id)
+        except Exception as e:
+            try:
+                payload = get_usage(owner, customer_id)
+            except Exception:
+                payload = {"trend": "flat", "avgDailyUsers": 0, "sparkline": [], "missingData": True}
+        print(json.dumps({"type":"TOOL_LOG","tool":"get_customer_usage","owner":owner,"customerId":customer_id,"missing":bool(payload.get("missingData"))}))
         return ok(payload)
 
     except FileNotFoundError:
-        return error(404, "MISSING_DATA", "Usage data not found")
+        print(json.dumps({"type":"TOOL_LOG","tool":"get_customer_usage","error":"MISSING_DATA"}))
+        return ok({"trend": "flat", "avgDailyUsers": 0, "sparkline": [], "missingData": True})
     except ValueError as ve:
         msg = str(ve)
         code = "INVALID_INPUT" if "INVALID_" in msg else "UNAUTHORIZED"
+        print(json.dumps({"type":"TOOL_LOG","tool":"get_customer_usage","error":code}))
         return error(400 if code == "INVALID_INPUT" else 401, code, msg)
     except Exception as e:
+        print(json.dumps({"type":"TOOL_LOG","tool":"get_customer_usage","error":"EXCEPTION","ex":type(e).__name__}))
         return error(500, "TOOL_FAILURE", f"{type(e).__name__}")
 
 
