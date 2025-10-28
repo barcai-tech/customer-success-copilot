@@ -140,7 +140,7 @@ export async function seedDemoCustomersAction() {
         await db.insert(contracts).values({
           companyExternalId: co.id,
           ownerUserId: userId,
-          renewalDate: cont.renewalDate,
+          renewalDate: new Date(cont.renewalDate),
           arr: cont.arr,
         });
       const use = GLOBAL_USAGE[co.id];
@@ -179,16 +179,56 @@ export async function createCustomerAction(input: {
     externalId: input.externalId || input.name, // Auto-generate from name if not provided
   });
 
-  await db.insert(companies).values({
-    externalId: validated.externalId,
-    name: validated.name,
-    ownerUserId: userId,
-  });
+  // Attempt to insert with retry logic for duplicate external_ids
+  let externalId = validated.externalId;
+  let inserted = false;
+  let finalError: Error | null = null;
+
+  for (let attempt = 0; attempt < 5 && !inserted; attempt++) {
+    try {
+      // Append suffix on retry attempts (e.g., "-2", "-3", etc.)
+      if (attempt > 0) {
+        externalId = `${validated.externalId}-${attempt + 1}`;
+      }
+
+      await db.insert(companies).values({
+        externalId,
+        name: validated.name,
+        ownerUserId: userId,
+      });
+
+      inserted = true;
+      break;
+    } catch (error: any) {
+      finalError = error;
+      // Only retry on duplicate key errors
+      if (
+        !error.message?.includes("duplicate key") &&
+        !error.message?.includes("unique")
+      ) {
+        throw error;
+      }
+      // If this is the last attempt, prepare final error message
+      if (attempt === 4) {
+        throw new Error(
+          `Customer "${validated.externalId}" already exists for this account. ` +
+            `Could not generate a unique ID after multiple attempts. Please use a different name.`
+        );
+      }
+    }
+  }
+
+  if (!inserted) {
+    throw finalError || new Error("Failed to create customer");
+  }
   if (input.seed) {
+    // Create renewal date 120 days from now
+    const renewalDate = new Date(Date.now() + 120 * 86400000);
+
     await db.insert(contracts).values({
       companyExternalId: validated.externalId,
       ownerUserId: userId,
-      renewalDate: new Date(Date.now() + 120 * 86400000).toISOString(),
+      renewalDate,
       arr: 100000,
     });
     await db.insert(usageSummaries).values({
@@ -320,23 +360,34 @@ export async function updateCustomerAction(input: {
     (typeof input.renewalDate === "string" && input.renewalDate) ||
     typeof input.arr === "number"
   ) {
-    const values: { renewalDate?: string; arr?: number } = {};
-    if (typeof input.renewalDate === "string" && input.renewalDate)
-      values.renewalDate = input.renewalDate;
-    if (typeof input.arr === "number" && !Number.isNaN(input.arr))
-      values.arr = input.arr;
-    if (Object.keys(values).length) {
+    let renewalDate: Date | undefined;
+    const updateValues: Record<string, any> = {};
+
+    if (typeof input.renewalDate === "string" && input.renewalDate) {
+      // Parse the date string to a Date object
+      renewalDate = new Date(input.renewalDate);
+      updateValues.renewalDate = renewalDate;
+    }
+
+    if (typeof input.arr === "number" && !Number.isNaN(input.arr)) {
+      updateValues.arr = input.arr;
+    }
+
+    if (Object.keys(updateValues).length) {
+      // Ensure we have defaults for insert (in case this is a new contract)
+      const defaultDate = new Date();
+
       await db
         .insert(contracts)
         .values({
           companyExternalId: externalId,
           ownerUserId: userId,
-          renewalDate: values.renewalDate || new Date().toISOString(),
-          arr: values.arr ?? 0,
+          renewalDate: renewalDate || defaultDate,
+          arr: input.arr ?? 0,
         })
         .onConflictDoUpdate({
           target: [contracts.ownerUserId, contracts.companyExternalId],
-          set: values,
+          set: updateValues as any,
         });
     }
   }
@@ -427,13 +478,13 @@ export async function upsertContractAction(input: {
     .values({
       companyExternalId: validated.customerId,
       ownerUserId: userId,
-      renewalDate: validated.renewalDate,
+      renewalDate: new Date(validated.renewalDate),
       arr: validated.arr,
     })
     .onConflictDoUpdate({
       target: [contracts.ownerUserId, contracts.companyExternalId],
       set: {
-        renewalDate: validated.renewalDate,
+        renewalDate: new Date(validated.renewalDate),
         arr: validated.arr,
       },
     });

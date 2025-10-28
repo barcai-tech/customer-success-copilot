@@ -91,6 +91,11 @@ async function matchCustomer(text: string): Promise<string | undefined> {
   return undefined;
 }
 
+// Export task matching separately - it doesn't require DB access
+export async function parseTask(text: string): Promise<TaskType | undefined> {
+  return matchTask(text);
+}
+
 export async function parseIntent(message: string): Promise<ParsedIntent> {
   const customerId = await matchCustomer(message);
   const task = matchTask(message);

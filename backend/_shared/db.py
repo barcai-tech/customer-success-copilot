@@ -114,4 +114,7 @@ def get_contract(owner_user_id: str, company_external_id: str) -> Dict[str, Any]
     if not row:
         return {"renewalDate": None, "arr": 0, "missingData": True}
     renewal_date, arr = row
+    # Convert datetime to ISO string if it's a date/datetime object
+    if renewal_date:
+        renewal_date = renewal_date.isoformat() if hasattr(renewal_date, 'isoformat') else str(renewal_date)
     return {"renewalDate": renewal_date, "arr": int(arr or 0), "missingData": False}

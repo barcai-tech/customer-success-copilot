@@ -67,7 +67,9 @@ export const externalIdSchema = z
   .transform((val) =>
     val
       .toLowerCase()
-      .replace(/[^a-z0-9\-_]/g, "")
+      .replace(/\s+/g, "-") // Replace spaces with hyphens
+      .replace(/[^a-z0-9\-_]/g, "") // Remove other special characters
+      .replace(/^-+|-+$/g, "") // Remove leading/trailing hyphens
       .slice(0, 100)
   )
   .pipe(z.string().min(1, "External ID cannot be empty"));

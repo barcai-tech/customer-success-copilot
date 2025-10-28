@@ -49,6 +49,7 @@ def _handle(event):
         require_hmac(event)
         customer_id, params = parse_envelope(event.get("body") or "")
         owner = (params or {}).get("ownerUserId") or "public"
+        print(f"[DEBUG] generate_email: customer_id={customer_id}, owner={owner}, params={params}")
 
         try:
             usage = get_usage(owner, customer_id)

@@ -20,7 +20,7 @@ export default async function DashboardPage() {
 
   const rows = await listCustomersForUser();
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 h-full overflow-y-auto">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Customers</h1>
         <DashboardActions hasCustomers={rows.length > 0} />

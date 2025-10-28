@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
               new TextEncoder().encode(
                 `event: progress\ndata: ${JSON.stringify({
                   type: "test_start",
+                  resultId,
                   customerId,
                   customerName,
                   action,
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
                   new TextEncoder().encode(
                     `event: progress\ndata: ${JSON.stringify({
                       type: "test_complete",
+                      resultId,
                       customerId,
                       customerName,
                       action,
@@ -208,6 +210,7 @@ export async function POST(req: NextRequest) {
                 new TextEncoder().encode(
                   `event: progress\ndata: ${JSON.stringify({
                     type: "test_complete",
+                    resultId,
                     customerId,
                     customerName,
                     action,
@@ -246,6 +249,7 @@ export async function POST(req: NextRequest) {
                 new TextEncoder().encode(
                   `event: progress\ndata: ${JSON.stringify({
                     type: "test_complete",
+                    resultId,
                     customerId,
                     customerName,
                     action,

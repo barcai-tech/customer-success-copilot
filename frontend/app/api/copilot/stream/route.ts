@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { parseIntent } from "@/src/agent/intent";
+import { parseIntent, parseTask } from "@/src/agent/intent";
 import { getToolRegistry } from "@/src/agent/tool-registry";
 import { callLLM, type LlmMessage } from "@/src/llm/provider";
 import {
@@ -29,6 +29,7 @@ import {
 } from "@/src/contracts/planner";
 import { auth } from "@clerk/nextjs/server";
 import { getRandomOutOfScopeReply } from "@/src/agent/outOfScopeReplies";
+import type { TaskType } from "@/src/store/copilot-store";
 
 type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
 type ToolDataMap = {
@@ -55,6 +56,7 @@ export async function GET(req: NextRequest) {
   const message = searchParams.get("message") || "";
   const selectedCustomerId =
     searchParams.get("selectedCustomerId") || undefined;
+  const requestOwnerUserId = searchParams.get("ownerUserId") || undefined;
   if (!message) return new Response("Missing message", { status: 400 });
 
   const stream = new ReadableStream({
@@ -67,10 +69,20 @@ export async function GET(req: NextRequest) {
       const close = () => controller.close();
 
       try {
-        // Resolve customer first to keep tools + UI aligned
-        const parsed = await parseIntent(message);
-        const customerId = parsed.customerId || selectedCustomerId;
-        const task = parsed.task || null;
+        // Resolve customer: use selected customer if available, otherwise parse from message
+        // This avoids expensive DB query when customer is already known from UI
+        let customerId = selectedCustomerId;
+        let task: TaskType | null = null;
+
+        // Only parse intent if no customer was selected in UI
+        if (!customerId) {
+          const parsed = await parseIntent(message);
+          customerId = parsed.customerId;
+          task = parsed.task || null;
+        } else {
+          // Customer already known - just parse task type (no DB call needed)
+          task = (await parseTask(message)) || null;
+        }
 
         // Out-of-scope guard: reject non-CS questions regardless of customer selection
         if (isOutOfScope(message)) {
@@ -104,7 +116,9 @@ export async function GET(req: NextRequest) {
 
         const tools = getToolRegistry();
         const { userId } = await auth();
-        const ownerUserId = userId ?? "public";
+        // Use ownerUserId from request if provided (for eval), otherwise use authenticated user's ID
+        const ownerUserId = requestOwnerUserId || userId || "public";
+        console.log("[DEBUG] Clerk userId:", userId, "requestOwnerUserId:", requestOwnerUserId, "final ownerUserId:", ownerUserId);
         const usedTools: Array<{
           name: string;
           tookMs?: number;

@@ -35,9 +35,10 @@ export type ClerkUser = z.infer<typeof ClerkUserSchema>;
 const CustomerRowSchema = z.object({
   id: z.string(),
   name: z.string(),
+  ownerUserId: z.string(),
   trend: z.string().nullable().optional(),
   openTickets: z.number().nullable().optional(),
-  renewalDate: z.string().nullable().optional(),
+  renewalDate: z.instanceof(Date).nullable().optional(),
 });
 
 export type CustomerRow = z.infer<typeof CustomerRowSchema>;
@@ -93,6 +94,7 @@ export async function getCustomersForUser(
       .select({
         id: companies.externalId,
         name: companies.name,
+        ownerUserId: companies.ownerUserId,
         trend: usageSummaries.trend,
         openTickets: ticketSummaries.openTickets,
         renewalDate: contracts.renewalDate,
@@ -149,19 +151,23 @@ export async function runEvaluation(input: unknown): Promise<EvalSession> {
 
     // Fetch customer details from database
     const customerDetails = await db
-      .select({ id: companies.externalId, name: companies.name })
+      .select({ 
+        id: companies.externalId, 
+        name: companies.name,
+        ownerUserId: companies.ownerUserId 
+      })
       .from(companies)
       .where(eq(companies.ownerUserId, userId));
 
-    const customerMap = new Map(customerDetails.map((c) => [c.id, c.name]));
+    const customerMap = new Map(customerDetails.map((c) => [c.id, { name: c.name, ownerUserId: c.ownerUserId }]));
 
     // Run evaluations
     const sessionId = randomUUID();
     const results: EvalResult[] = [];
 
     for (const customerId of customerIds) {
-      const customerName = customerMap.get(customerId);
-      if (!customerName) continue;
+      const customerInfo = customerMap.get(customerId);
+      if (!customerInfo) continue;
 
       for (const action of actions) {
         const startTime = Date.now();
@@ -170,8 +176,9 @@ export async function runEvaluation(input: unknown): Promise<EvalSession> {
         try {
           // Trigger the quick action via the streaming endpoint
           const searchParams = new URLSearchParams({
-            message: generatePromptForAction(action, customerName),
+            message: generatePromptForAction(action, customerInfo.name),
             selectedCustomerId: customerId,
+            ownerUserId: customerInfo.ownerUserId,
           });
 
           const response = await fetch(
@@ -189,7 +196,7 @@ export async function runEvaluation(input: unknown): Promise<EvalSession> {
               id: resultId,
               timestamp: new Date().toISOString(),
               customerId,
-              customerName: customerName,
+              customerName: customerInfo.name,
               action,
               status: "failure",
               error: `Stream returned ${response.status}`,
@@ -248,7 +255,7 @@ export async function runEvaluation(input: unknown): Promise<EvalSession> {
             id: resultId,
             timestamp: new Date().toISOString(),
             customerId,
-            customerName: customerName,
+            customerName: customerInfo.name,
             action,
             status: finalResult.summary ? "success" : "failure",
             error:
@@ -270,7 +277,7 @@ export async function runEvaluation(input: unknown): Promise<EvalSession> {
             id: resultId,
             timestamp: new Date().toISOString(),
             customerId,
-            customerName: customerName,
+            customerName: customerInfo.name,
             action,
             status: "timeout",
             error: (e as Error).message,

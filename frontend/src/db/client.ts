@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
+import * as schema from "./schema";
 
 function mustEnv(name: string): string {
   const v = process.env[name];
@@ -11,6 +12,7 @@ function mustEnv(name: string): string {
 const sql = neon(mustEnv("DATABASE_URL"));
 
 export const db = drizzle(sql, {
+  schema,
   // Disable query logging to prevent SQL queries from appearing in browser console
   // Even in development, this can expose sensitive data and query patterns
   logger: false,

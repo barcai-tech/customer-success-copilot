@@ -2,7 +2,9 @@
 
 import { useCallback } from "react";
 import { useEvalLogStore } from "@/src/store/eval-log-store";
+import { useDetailLogStore } from "@/src/store/eval-detail-store";
 import { useEvalStore } from "@/src/store/eval-store";
+import { saveEvalSession, saveExecutionSteps } from "@/src/db/eval-actions";
 import type { EvalSession, EvalResult } from "@/src/contracts/eval";
 
 interface Summary {
@@ -24,6 +26,7 @@ function formatDuration(ms: number): string {
 
 export function useEvalStreaming() {
   const { addLog, clearLogs } = useEvalLogStore();
+  const { startResult, addStep, endResult } = useDetailLogStore();
   const { addSessionRun } = useEvalStore();
 
   const runEvaluationWithLogs = useCallback(
@@ -60,6 +63,7 @@ export function useEvalStreaming() {
 
         const decoder = new TextDecoder();
         let buffer = "";
+        let currentResultId: string | null = null;
         const partialSession: ProgressUpdate = {
           results: [],
           summary: {
@@ -87,11 +91,30 @@ export function useEvalStreaming() {
               try {
                 const data = JSON.parse(line.slice(6));
 
+                console.log("[useEvalStreaming] Event:", data.type, data);
+
                 if (data.type === "test_start") {
+                  console.log(
+                    "[useEvalStreaming] test_start, resultId:",
+                    data.resultId
+                  );
                   addLog(
                     `⏳ Running: ${data.customerName} → ${data.action}`,
                     "info"
                   );
+                  // Start a new result log for detailed execution tracking
+                  currentResultId = data.resultId;
+                  if (currentResultId) {
+                    console.log(
+                      "[useEvalStreaming] Calling startResult with",
+                      currentResultId
+                    );
+                    startResult(
+                      currentResultId,
+                      data.customerName,
+                      data.action
+                    );
+                  }
                 } else if (data.type === "phase:complete") {
                   // Relay phase completion events from copilot stream
                   if (data.phase === "planning") {
@@ -99,6 +122,18 @@ export function useEvalStreaming() {
                       `✓ Planning Phase (${formatDuration(data.durationMs)})`,
                       "success"
                     );
+                    if (currentResultId) {
+                      console.log(
+                        "[useEvalStreaming] Adding planning step to",
+                        currentResultId
+                      );
+                      addStep(currentResultId, {
+                        title: "Planning Phase",
+                        description: `LLM planning completed`,
+                        level: "success",
+                        durationMs: data.durationMs,
+                      });
+                    }
                   } else if (data.phase === "synthesis") {
                     addLog(
                       `✓ Processing & Synthesis (${formatDuration(
@@ -106,6 +141,18 @@ export function useEvalStreaming() {
                       )})`,
                       "success"
                     );
+                    if (currentResultId) {
+                      console.log(
+                        "[useEvalStreaming] Adding synthesis step to",
+                        currentResultId
+                      );
+                      addStep(currentResultId, {
+                        title: "Processing & Synthesis",
+                        description: `LLM synthesis completed`,
+                        level: "success",
+                        durationMs: data.durationMs,
+                      });
+                    }
                   }
                 } else if (data.type === "tool:complete") {
                   // Relay tool completion events from copilot stream
@@ -114,8 +161,32 @@ export function useEvalStreaming() {
                       `✓ ${data.name} (${formatDuration(data.tookMs)})`,
                       "success"
                     );
+                    if (currentResultId) {
+                      console.log(
+                        "[useEvalStreaming] Adding tool step to",
+                        currentResultId
+                      );
+                      addStep(currentResultId, {
+                        title: `Tool: ${data.name}`,
+                        description: `Executed successfully`,
+                        level: "success",
+                        durationMs: data.tookMs,
+                      });
+                    }
                   } else {
                     addLog(`✗ ${data.name} - ${data.error}`, "error");
+                    if (currentResultId) {
+                      console.log(
+                        "[useEvalStreaming] Adding error step to",
+                        currentResultId
+                      );
+                      addStep(currentResultId, {
+                        title: `Tool: ${data.name}`,
+                        description: `Failed: ${data.error}`,
+                        level: "error",
+                        durationMs: data.tookMs,
+                      });
+                    }
                   }
                 } else if (data.type === "test_complete") {
                   const statusEmoji =
@@ -135,6 +206,12 @@ export function useEvalStreaming() {
                       : "error"
                   );
 
+                  // End the result log
+                  if (currentResultId) {
+                    endResult(currentResultId, data.durationMs);
+                    currentResultId = null;
+                  }
+
                   if (data.result) {
                     partialSession.results = data.result.results;
                     partialSession.summary = data.result.summary;
@@ -146,6 +223,49 @@ export function useEvalStreaming() {
                 } else if (data.type === "final") {
                   // Add session to run history
                   addSessionRun(data.session);
+
+                  // Persist to database
+                  try {
+                    console.log("[useEvalStreaming] Saving eval session...");
+                    const { sessionId, resultIdMap } = await saveEvalSession(
+                      data.session
+                    );
+                    console.log(
+                      "[useEvalStreaming] Session saved with ID:",
+                      sessionId,
+                      "Result map:",
+                      resultIdMap
+                    );
+
+                    // Save execution steps for each result
+                    const store = useDetailLogStore.getState();
+                    for (const result of data.session.results) {
+                      const dbResultId = resultIdMap.get(result.id);
+                      const log = store.getResultLog(result.id);
+                      console.log(
+                        `[useEvalStreaming] Result ${
+                          result.id
+                        } (db: ${dbResultId}) has ${
+                          log?.steps.length || 0
+                        } steps`
+                      );
+                      if (log && log.steps.length > 0 && dbResultId) {
+                        console.log(
+                          `[useEvalStreaming] Saving ${log.steps.length} steps for result ${dbResultId}`
+                        );
+                        await saveExecutionSteps(dbResultId, log.steps);
+                      }
+                    }
+
+                    addLog("✓ Session saved to database", "success");
+                  } catch (error) {
+                    console.error(
+                      "[useEvalStreaming] Failed to save session to database:",
+                      error
+                    );
+                    addLog(`Warning: Session not saved to database`, "warning");
+                  }
+
                   return data.session;
                 }
               } catch (e) {
@@ -164,7 +284,7 @@ export function useEvalStreaming() {
         throw error;
       }
     },
-    [addLog, clearLogs, addSessionRun]
+    [addLog, clearLogs, addSessionRun, startResult, addStep, endResult]
   );
 
   return { runEvaluationWithLogs };

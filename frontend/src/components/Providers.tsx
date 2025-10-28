@@ -4,6 +4,33 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
+  // Suppress Clerk development keys warning in console
+  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+    const originalWarn = console.warn;
+    const originalError = console.error;
+
+    // Suppress specific development warnings
+    console.warn = (...args: any[]) => {
+      const message = args[0]?.toString?.() || "";
+      if (
+        message.includes("development keys") ||
+        message.includes("strict usage limits")
+      ) {
+        return;
+      }
+      originalWarn(...args);
+    };
+
+    console.error = (...args: any[]) => {
+      const message = args[0]?.toString?.() || "";
+      // Allow hydration warnings to still show, but suppress Clerk-specific noise
+      if (message.includes("development keys")) {
+        return;
+      }
+      originalError(...args);
+    };
+  }
+
   return (
     <ClerkProvider
       signInUrl="/sign-in"
