@@ -8,6 +8,7 @@ import { MessageList } from "./MessageList";
 import { CustomerCombobox } from "./CustomerCombobox";
 import { QuickActions } from "./QuickActions";
 import { useCopilotStore } from "../../store/copilot-store";
+import { useCopilotExecutionLogStore } from "../../store/copilot-execution-log-store";
 // import { runLlmPlannerFromPromptAction } from "../../../app/actions";
 import { toast } from "sonner";
 import { Info } from "lucide-react";
@@ -44,7 +45,25 @@ export function CopilotDashboard() {
           params.set("selectedCustomerId", selectedCustomer.id);
 
         // Start a placeholder assistant message to stream into
-        useCopilotStore.getState().beginAssistantMessage("Preparing...");
+        const assistantId = useCopilotStore
+          .getState()
+          .beginAssistantMessage("Preparing...");
+
+        // Helper to format duration
+        const formatDuration = (ms: number) => {
+          if (ms < 1000) return `${ms}ms`;
+          return `${(ms / 1000).toFixed(2)}s`;
+        };
+
+        // Helper to add execution log
+        const addLog = (msg: string, level?: "info" | "success" | "error") => {
+          useCopilotExecutionLogStore
+            .getState()
+            .addLog(msg, level || "info", assistantId);
+        };
+
+        // Clear any previous logs for this message
+        useCopilotExecutionLogStore.getState().clearLogs(assistantId);
 
         const source = new EventSource(
           `/api/copilot/stream?${params.toString()}`
@@ -96,6 +115,37 @@ export function CopilotDashboard() {
             if (idx >= 0) used[idx] = { ...used[idx], ...data };
             else used.push(data);
             st.patchActiveAssistantResult({ usedTools: used });
+          } catch {}
+        });
+        // Real-time execution detail events
+        source.addEventListener("phase:complete", (ev: MessageEvent) => {
+          try {
+            const data = JSON.parse(ev.data) as {
+              phase: string;
+              durationMs: number;
+            };
+            if (data.phase === "planning") {
+              addLog(
+                `Planning Phase (${formatDuration(data.durationMs)})`,
+                "success"
+              );
+            } else if (data.phase === "synthesis") {
+              addLog(
+                `Processing & Synthesis (${formatDuration(data.durationMs)})`,
+                "success"
+              );
+            }
+          } catch {}
+        });
+        source.addEventListener("tool:complete", (ev: MessageEvent) => {
+          try {
+            const data = JSON.parse(ev.data) as {
+              name: string;
+              tookMs: number;
+              status?: string;
+            };
+            const level = data.status === "error" ? "error" : "success";
+            addLog(`${data.name} (${formatDuration(data.tookMs)})`, level);
           } catch {}
         });
         source.addEventListener("patch", (ev: MessageEvent) => {

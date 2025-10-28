@@ -72,8 +72,23 @@ export default function PlannerForm() {
 }
 
 function Results({ result }: { result: PlannerResult }) {
+  // Check if we have any meaningful data
+  const hasData =
+    result.summary ||
+    result.health ||
+    result.emailDraft ||
+    result.actions ||
+    (result.usedTools && result.usedTools.length > 0);
+
   return (
     <div className="space-y-4">
+      {!hasData && (
+        <div className="text-sm text-muted-foreground p-3 border rounded-lg bg-muted/50">
+          No results generated. Plan source: {result.planSource}
+          {result.planHint && ` • ${result.planHint}`}
+        </div>
+      )}
+
       {result.summary && (
         <p>
           <span className="font-medium">Summary:</span> {result.summary}
@@ -94,25 +109,37 @@ function Results({ result }: { result: PlannerResult }) {
           body={result.emailDraft.body}
         />
       )}
-      <div className="text-sm border rounded-lg p-3 bg-card">
-        <div className="font-medium mb-1">Used Tools</div>
-        <ul className="flex flex-wrap gap-2">
-          {result.usedTools.map((t, i) => (
-            <li
-              key={i}
-              className={`text-xs px-2 py-1 rounded border ${
-                t.error
-                  ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900"
-                  : "bg-muted text-foreground/80"
-              }`}
-            >
-              {t.name}
-              {typeof t.tookMs === "number" ? ` • ${t.tookMs} ms` : ""}
-              {t.error ? ` • ${t.error}` : ""}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {result.actions && result.actions.length > 0 && (
+        <div className="text-sm border rounded-lg p-3 bg-card">
+          <div className="font-medium mb-1">Recommended Actions</div>
+          <ul className="list-disc list-inside space-y-1">
+            {result.actions.map((action, i) => (
+              <li key={i}>{action}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {result.usedTools && result.usedTools.length > 0 && (
+        <div className="text-sm border rounded-lg p-3 bg-card">
+          <div className="font-medium mb-1">Used Tools</div>
+          <ul className="flex flex-wrap gap-2">
+            {result.usedTools.map((t, i) => (
+              <li
+                key={i}
+                className={`text-xs px-2 py-1 rounded border ${
+                  t.error
+                    ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900"
+                    : "bg-muted text-foreground/80"
+                }`}
+              >
+                {t.name}
+                {typeof t.tookMs === "number" ? ` • ${t.tookMs} ms` : ""}
+                {t.error ? ` • ${t.error}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {result.notes && (
         <div className="text-xs text-gray-600">{result.notes}</div>
       )}

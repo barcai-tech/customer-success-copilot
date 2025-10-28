@@ -136,6 +136,7 @@ export function MessageList() {
                   isRunning={
                     status === "running" && activeAssistantId === message.id
                   }
+                  messageId={message.id}
                 />
               </div>
             )}

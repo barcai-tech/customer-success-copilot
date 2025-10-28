@@ -46,18 +46,18 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
     >
-      <body className="flex flex-col h-dvh w-full overflow-hidden">
+      <body className="flex flex-col min-h-screen w-full">
         <Providers>
           <Header />
-          <main className="flex-1 w-full min-w-0 overflow-hidden">
-            <div className="h-full mx-auto w-full max-w-[1600px] min-w-0">
+          <main className="flex-1 w-full min-w-0 overflow-y-auto overflow-x-hidden">
+            <div className="mx-auto w-full max-w-[1600px] min-w-0">
               {children}
             </div>
           </main>
           <Footer />
 
           {/* Toast Notifications */}
-          <Toaster />
+          <Toaster position="top-center" />
         </Providers>
       </body>
     </html>

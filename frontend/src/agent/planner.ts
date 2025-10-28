@@ -241,12 +241,26 @@ export async function runPlanner(
     ];
   }
 
+  // Build notes for any issues
+  const failedTools = usedTools.filter((t) => t.error);
+  const notes: string[] = [];
+  if (failedTools.length > 0) {
+    notes.push(
+      `${failedTools.length} tool(s) failed: ${failedTools
+        .map((t) => t.name)
+        .join(", ")}`
+    );
+  }
+  if (!usage && task !== "health") {
+    notes.push("Usage data unavailable");
+  }
+
   return {
     summary: summaryParts.length ? summaryParts.join("; ") : undefined,
     health,
     actions,
     emailDraft: email,
     usedTools,
-    notes: !usage && task !== "health" ? "Usage data missing." : undefined,
+    notes: notes.length ? notes.join("; ") : undefined,
   };
 }

@@ -4,6 +4,7 @@ import { Wrench, X } from "lucide-react";
 import type { PlannerResult } from "@/src/agent/planner";
 import { PlanRationale } from "./PlanRationale";
 import { ToolExecutionTimeline } from "./ToolExecutionTimeline";
+import { ExecutionDetailsLog } from "../ExecutionDetailsLog";
 import { CUSTOMERS } from "@/src/store/copilot-store";
 import { useCopilotStore } from "@/src/store/copilot-store";
 import { Button } from "@/src/components/ui/button";
@@ -11,13 +12,24 @@ import { Button } from "@/src/components/ui/button";
 interface TechnicalDetailsProps {
   result: PlannerResult;
   isRunning?: boolean;
+  messageId?: string;
 }
 
-export function TechnicalDetails({ result, isRunning = false }: TechnicalDetailsProps) {
+export function TechnicalDetails({
+  result,
+  isRunning = false,
+  messageId,
+}: TechnicalDetailsProps) {
   const cancelStream = useCopilotStore((s) => s.cancelStream);
   const status = useCopilotStore((s) => s.status);
-  const showRationale = !!(result.decisionLog || (result.usedTools && result.usedTools.length > 0));
-  const showTimeline = !!(result.usedTools && (result.usedTools.length > 0 || isRunning));
+  const showRationale = !!(
+    result.decisionLog ||
+    (result.usedTools && result.usedTools.length > 0)
+  );
+  const showTimeline = !!(
+    result.usedTools &&
+    (result.usedTools.length > 0 || isRunning)
+  );
   if (!showRationale && !showTimeline) return null;
 
   const customerLabel = (() => {
@@ -54,7 +66,12 @@ export function TechnicalDetails({ result, isRunning = false }: TechnicalDetails
         )}
         <div className="ml-auto">
           {isRunning && status === "running" && (
-            <Button variant="outline" size="sm" onClick={cancelStream} className="gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={cancelStream}
+              className="gap-1"
+            >
               <X className="h-3.5 w-3.5" /> Cancel
             </Button>
           )}
@@ -63,6 +80,16 @@ export function TechnicalDetails({ result, isRunning = false }: TechnicalDetails
       {result.planSource === "heuristic" && result.planHint && (
         <div className="text-xs text-muted-foreground -mt-2">
           Fell back to heuristic planner: {result.planHint}
+        </div>
+      )}
+
+      {/* Real-time Execution Details */}
+      {messageId && (
+        <div className="space-y-2">
+          <div className="text-xs font-medium text-muted-foreground">
+            Execution Details
+          </div>
+          <ExecutionDetailsLog messageId={messageId} isRunning={isRunning} />
         </div>
       )}
 
@@ -81,7 +108,12 @@ export function TechnicalDetails({ result, isRunning = false }: TechnicalDetails
       {showTimeline && (
         <div className="space-y-2">
           <div className="text-xs font-medium text-muted-foreground">Tools</div>
-          <ToolExecutionTimeline tools={result.usedTools || []} isRunning={isRunning} embedded compact />
+          <ToolExecutionTimeline
+            tools={result.usedTools || []}
+            isRunning={isRunning}
+            embedded
+            compact
+          />
         </div>
       )}
     </div>

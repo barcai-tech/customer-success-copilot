@@ -72,19 +72,31 @@ export function CustomerActionsMenu({ customer }: CustomerActionsMenuProps) {
               className="px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
               onSelect={() => runPreset(customer.id, "health")}
             >
-              Show health
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              className="px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
-              onSelect={() => runPreset(customer.id, "qbr")}
-            >
-              Prepare QBR
+              Health Check
             </DropdownMenu.Item>
             <DropdownMenu.Item
               className="px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
               onSelect={() => runPreset(customer.id, "renewal")}
             >
-              Prepare renewal
+              Renewal Brief
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+              onSelect={() => runPreset(customer.id, "qbr")}
+            >
+              QBR Prep
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+              onSelect={() => runPreset(customer.id, "email")}
+            >
+              Follow-up Email
+            </DropdownMenu.Item>
+            <DropdownMenu.Item
+              className="px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+              onSelect={() => runPreset(customer.id, "churn")}
+            >
+              Churn Review
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Portal>

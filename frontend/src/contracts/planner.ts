@@ -25,6 +25,14 @@ export const PlannerResultSchema = z.object({
   // Be permissive with usedTools coming from the LLM (we overwrite it later)
   usedTools: z.array(z.any()).optional().default([]),
   notes: z.string().optional(),
+  // Timing information for performance analysis
+  timingInfo: z
+    .object({
+      planningPhaseMs: z.number().optional(),
+      toolExecutionMs: z.number().optional(),
+      totalExecutionMs: z.number().optional(),
+    })
+    .optional(),
   // Accept either a structured array or an array of strings and normalize to objects
   decisionLog: z
     .union([

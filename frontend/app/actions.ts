@@ -7,7 +7,8 @@ import { runLlmPlanner } from "@/src/agent/llmPlanner";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/src/db/client";
 import { companies } from "@/src/db/schema";
-import { inArray } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
+import { seedGlobalCustomers as seedCustomersImpl } from "@/app/seed-actions";
 
 export type PlannerActionState =
   | { ok: true; result: PlannerResult }
@@ -142,4 +143,57 @@ export async function runLlmPlannerFromPromptAction(
     result.customerId = resolvedCustomerId || selectedCustomerId;
   }
   return { ok: true, result } as LlmPlannerActionState;
+}
+
+/**
+ * Check database health and connection status
+ */
+export async function checkDatabaseHealth() {
+  try {
+    const nowRes = await db.execute(sql`select now() as now`);
+    const ts = (nowRes as unknown as { rows?: Array<{ now?: string }> })
+      .rows?.[0]?.now;
+
+    const reg = await db.execute(
+      sql`select to_regclass('public.companies') as companies, to_regclass('public.messages') as messages, to_regclass('public.__drizzle_migrations') as drizzle`
+    );
+    const row =
+      (reg as unknown as { rows?: Array<Record<string, unknown>> }).rows?.[0] ||
+      {};
+
+    const hasCompanies = Boolean(row["companies"]);
+    const hasMessages = Boolean(row["messages"]);
+    const hasDrizzleMigrations = Boolean(row["drizzle"]);
+
+    return {
+      ok: true,
+      driver: "neon-http",
+      now: ts,
+      schema: {
+        companies: hasCompanies,
+        messages: hasMessages,
+        drizzleMigrationsTable: hasDrizzleMigrations,
+      },
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+/**
+ * Seed global customers into database
+ */
+export async function seedGlobalCustomers() {
+  try {
+    const res = await seedCustomersImpl();
+    return res;
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }

@@ -113,8 +113,12 @@ export async function GET(req: NextRequest) {
         const missingNotes = new Set<string>();
         const cache: Partial<ToolDataMap> = {};
 
+        // Track timing for performance analysis
+        const executionStartTime = performance.now();
+
         // ===== PHASE 1: PLANNING =====
         // Ask LLM to create an explicit plan in JSON format
+        const planningPhaseStartTime = performance.now();
         const planningMessages: LlmMessage[] = [
           {
             role: "system",
@@ -277,6 +281,16 @@ export async function GET(req: NextRequest) {
             planSummary,
           });
         }
+
+        // Capture end of planning phase
+        const planningPhaseMs = performance.now() - planningPhaseStartTime;
+        const toolExecutionStartTime = performance.now();
+
+        // Send planning phase completion event
+        send("phase:complete", {
+          phase: "planning",
+          durationMs: Math.round(planningPhaseMs),
+        });
 
         // ===== PHASE 2: EXECUTION =====
         // Execute the planned tools (or adapt if planning failed)
@@ -583,9 +597,21 @@ export async function GET(req: NextRequest) {
                     if (res.ok) {
                       endRecord.tookMs = Math.round(t1 - t0);
                       usedTools.push({ name, tookMs: endRecord.tookMs });
+                      // Send tool completion event
+                      send("tool:complete", {
+                        name,
+                        tookMs: endRecord.tookMs,
+                        status: "success",
+                      });
                     } else {
                       endRecord.error = res.error?.code || "ERROR";
                       usedTools.push({ name, error: endRecord.error });
+                      // Send tool error event
+                      send("tool:complete", {
+                        name,
+                        status: "error",
+                        error: endRecord.error,
+                      });
                     }
                     envelope = res;
                     if (res.ok) {
@@ -778,6 +804,35 @@ export async function GET(req: NextRequest) {
             out.notes = `Some data unavailable: ${Array.from(missingNotes).join(
               ", "
             )}`;
+
+          // Calculate and add timing information
+          const now = performance.now();
+          const toolExecutionMs = now - toolExecutionStartTime;
+          const totalExecutionMs = now - executionStartTime;
+
+          // Calculate synthesis time based on timing info already in the response
+          // If we have tool timing from usedTools, use that; otherwise estimate
+          const actualToolMs = usedTools.reduce(
+            (sum, t) => sum + (t.tookMs || 0),
+            0
+          );
+          const synthesisMs = toolExecutionMs - actualToolMs;
+
+          out.timingInfo = {
+            planningPhaseMs: Math.round(planningPhaseMs),
+            toolExecutionMs: Math.round(actualToolMs),
+            totalExecutionMs: Math.round(totalExecutionMs),
+          };
+
+          // Send synthesis phase completion event
+          if (synthesisMs > 100) {
+            // Use 100ms threshold since it includes LLM processing
+            send("phase:complete", {
+              phase: "synthesis",
+              durationMs: Math.round(synthesisMs),
+            });
+          }
+
           console.log(
             "[LLM success] Sending final:",
             JSON.stringify(out, null, 2)
@@ -801,6 +856,33 @@ export async function GET(req: NextRequest) {
         if (!partial.actions || partial.actions.length === 0) {
           partial.actions = synthesizeActions(task);
         }
+
+        // Add timing info to fallback result
+        const now = performance.now();
+        const toolExecutionMs = now - toolExecutionStartTime;
+        const totalExecutionMs = now - executionStartTime;
+
+        // Calculate synthesis time based on actual tool execution time
+        const actualToolMs = usedTools.reduce(
+          (sum, t) => sum + (t.tookMs || 0),
+          0
+        );
+        const synthesisMs = toolExecutionMs - actualToolMs;
+
+        partial.timingInfo = {
+          planningPhaseMs: Math.round(planningPhaseMs),
+          toolExecutionMs: Math.round(actualToolMs),
+          totalExecutionMs: Math.round(totalExecutionMs),
+        };
+
+        // Send synthesis phase completion event
+        if (synthesisMs > 100) {
+          send("phase:complete", {
+            phase: "synthesis",
+            durationMs: Math.round(synthesisMs),
+          });
+        }
+
         console.log(
           "[Step limit fallback] Sending final:",
           JSON.stringify(partial, null, 2)
@@ -809,9 +891,13 @@ export async function GET(req: NextRequest) {
         close();
       } catch (e) {
         console.error("[Stream error]", e);
+        // Send error with basic fallback content
         send("final", {
           planSource: "heuristic",
-          planHint: (e as Error).message,
+          planHint: `LLM planner failed: ${(e as Error).message}`,
+          summary: "Unable to complete analysis. Please try again.",
+          actions: [],
+          usedTools: [],
         });
         close();
       }
@@ -879,6 +965,7 @@ function sanitizePlannerResult(
     planHint: input.planHint,
     customerId: input.customerId,
     task: input.task,
+    timingInfo: input.timingInfo,
   };
   if (copy.summary) copy.summary = redactString(copy.summary);
   if (copy.notes) copy.notes = redactString(copy.notes);

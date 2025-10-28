@@ -19,8 +19,8 @@ export function ActionItems({
   notes,
   isLoading = false,
 }: ActionItemsProps) {
-  // Don't show anything if not loading and no content
-  if (!isLoading && !summary && !actions && !notes) return null;
+  // Show if loading OR has content
+  if (!isLoading && !summary && !actions?.length && !notes) return null;
 
   return (
     <div className="rounded-lg border bg-card p-6 space-y-4">
