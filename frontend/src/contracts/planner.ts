@@ -1,6 +1,22 @@
 import { z } from "zod";
 import { HealthSchema } from "@/src/contracts/tools";
 
+// Schema for the explicit planning phase (Hybrid Planning approach)
+export const PlanStepSchema = z.object({
+  step: z.number(),
+  description: z.string(),
+  tool: z.string(),
+  reasoning: z.string(),
+});
+
+export const ExecutionPlanSchema = z.object({
+  plan: z.array(PlanStepSchema),
+  summary: z.string().optional(), // Optional initial summary of what will be done
+});
+
+export type PlanStep = z.infer<typeof PlanStepSchema>;
+export type ExecutionPlan = z.infer<typeof ExecutionPlanSchema>;
+
 export const PlannerResultSchema = z.object({
   summary: z.string().optional(),
   health: HealthSchema.optional(),
@@ -36,8 +52,9 @@ export const PlannerResultSchema = z.object({
     }),
   planSource: z.enum(["llm", "heuristic"]).optional(),
   planHint: z.string().optional(),
+  planSummary: z.string().optional(), // Hybrid planning: summary of planned execution
   customerId: z.string().optional(),
-  task: z.enum(["health","renewal","qbr","email","churn"]).optional(),
+  task: z.enum(["health", "renewal", "qbr", "email", "churn"]).optional(),
 });
 
 export type PlannerResultJson = z.infer<typeof PlannerResultSchema>;

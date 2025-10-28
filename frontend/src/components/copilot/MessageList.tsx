@@ -7,6 +7,7 @@ import { HealthSummary } from "./results/HealthSummary";
 import { EmailDraftCard } from "./results/EmailDraftCard";
 import { ActionItems } from "./results/ActionItems";
 import { TechnicalDetails } from "./results/TechnicalDetails";
+import { ExecutionPlan } from "./results/ExecutionPlan";
 
 export function MessageList() {
   const messages = useCopilotStore((state) => state.messages);
@@ -21,7 +22,7 @@ export function MessageList() {
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full text-center p-8">
+      <div className="flex flex-col items-center justify-center min-h-full text-center p-8">
         <Bot className="h-16 w-16 text-muted-foreground/50 mb-4" />
         <h3 className="text-lg font-semibold text-foreground mb-2">
           Welcome to Customer Success Copilot
@@ -36,7 +37,7 @@ export function MessageList() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-6">
+    <div className="w-full py-4 space-y-6">
       {messages.map((message) => (
         <div
           key={message.id}
@@ -83,6 +84,16 @@ export function MessageList() {
             {/* Show result if present */}
             {message.result && (
               <div className="w-full space-y-4">
+                {/* Execution Plan - shows the LLM's planning steps */}
+                {message.result.decisionLog &&
+                  message.result.decisionLog.length > 0 && (
+                    <ExecutionPlan
+                      decisionLog={message.result.decisionLog}
+                      planSummary={message.result.planSummary}
+                      usedTools={message.result.usedTools}
+                    />
+                  )}
+
                 {/* Health Summary always first if available */}
                 {message.result.health && (
                   <HealthSummary health={message.result.health} />
@@ -96,20 +107,35 @@ export function MessageList() {
                 {/* Summary & Actions */}
                 {(() => {
                   const r = message.result;
+                  const isRunning =
+                    status === "running" && activeAssistantId === message.id;
                   const hasActions = !!(r?.actions && r.actions.length > 0);
-                  const summaryIsDuplicate = !!(r?.summary && r.summary === message.content);
-                  // Show card only if it adds value: there are actions or the summary
-                  // is different from the bubble text. Notes alone won't trigger it
-                  // to avoid duplicate-looking cards for out-of-scope replies.
-                  return (hasActions || (r?.summary && !summaryIsDuplicate)) ? (
-                    <ActionItems summary={r?.summary} actions={r?.actions} notes={r?.notes} />
+                  const summaryIsDuplicate = !!(
+                    r?.summary && r.summary === message.content
+                  );
+                  // Show card if: loading OR has content worth showing
+                  // Don't show if summary is duplicate (avoids redundancy for simple replies)
+                  const shouldShow =
+                    isRunning ||
+                    hasActions ||
+                    (r?.summary && !summaryIsDuplicate);
+
+                  return shouldShow ? (
+                    <ActionItems
+                      summary={r?.summary}
+                      actions={r?.actions}
+                      notes={r?.notes}
+                      isLoading={isRunning}
+                    />
                   ) : null;
                 })()}
 
                 {/* Technical details last: rationale + timeline */}
                 <TechnicalDetails
                   result={message.result}
-                  isRunning={status === "running" && activeAssistantId === message.id}
+                  isRunning={
+                    status === "running" && activeAssistantId === message.id
+                  }
                 />
               </div>
             )}

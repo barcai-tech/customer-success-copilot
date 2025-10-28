@@ -160,7 +160,7 @@ export const useCopilotStore = create<CopilotState>((set, _get) => ({
           role: "assistant",
           content,
           timestamp: new Date(),
-          result: undefined,
+          result: { usedTools: [] }, // Initialize with empty result to show skeleton
         },
       ],
       activeAssistantId: newId,
@@ -173,7 +173,10 @@ export const useCopilotStore = create<CopilotState>((set, _get) => ({
       if (!id) return {};
       const messages = state.messages.map((m) => {
         if (m.id !== id || m.role !== "assistant") return m;
-        const merged: PlannerResult = { ...(m.result || {}), ...partial } as PlannerResult;
+        const merged: PlannerResult = {
+          ...(m.result || {}),
+          ...partial,
+        } as PlannerResult;
         return { ...m, result: merged };
       });
       return { messages };
@@ -183,25 +186,49 @@ export const useCopilotStore = create<CopilotState>((set, _get) => ({
       const id = state.activeAssistantId;
       const messages = state.messages.map((m) => {
         if (id && m.id === id && m.role === "assistant") {
-          return { ...m, content: content ?? (final.summary || m.content), result: final };
+          return {
+            ...m,
+            content: content ?? (final.summary || m.content),
+            result: final,
+          };
         }
         return m;
       });
       // Close stream if any
-      try { state.stream?.close(); } catch {}
-      return { messages, activeAssistantId: null, status: "success", result: final, error: null, stream: null };
+      try {
+        state.stream?.close();
+      } catch {}
+      return {
+        messages,
+        activeAssistantId: null,
+        status: "success",
+        result: final,
+        error: null,
+        stream: null,
+      };
     }),
   setStream: (es) => set({ stream: es }),
   cancelStream: () =>
     set((state) => {
-      try { state.stream?.close(); } catch {}
+      try {
+        state.stream?.close();
+      } catch {}
       // Mark active assistant as cancelled
       const messages = state.messages.map((m) => {
-        if (state.activeAssistantId && m.id === state.activeAssistantId && m.role === "assistant") {
+        if (
+          state.activeAssistantId &&
+          m.id === state.activeAssistantId &&
+          m.role === "assistant"
+        ) {
           return { ...m, content: "Cancelled.", result: m.result };
         }
         return m;
       });
-      return { stream: null, activeAssistantId: null, status: "idle", messages };
+      return {
+        stream: null,
+        activeAssistantId: null,
+        status: "idle",
+        messages,
+      };
     }),
 }));

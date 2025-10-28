@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from _shared.hmac_auth import require_hmac
 from _shared.models import parse_envelope
 from _shared.responses import ok, error, preflight
-from _shared.s3util import get_json_with_fallback
+from _shared.db import get_usage, get_tickets, get_contract
 
 
 def _compose_subject(customer_id: str) -> str:
@@ -47,17 +47,27 @@ def _handle(event):
             return preflight()
 
         require_hmac(event)
-        customer_id, _params = parse_envelope(event.get("body") or "")
+        customer_id, params = parse_envelope(event.get("body") or "")
+        owner = (params or {}).get("ownerUserId") or "public"
 
-        usage = get_json_with_fallback(f"usage/{customer_id}.json")
-        tickets = get_json_with_fallback(f"tickets/{customer_id}.json")
-        contract = get_json_with_fallback(f"contract/{customer_id}.json")
+        try:
+            usage = get_usage(owner, customer_id)
+            tickets = get_tickets(owner, customer_id)
+            contract = get_contract(owner, customer_id)
+        except Exception:
+            # Retry once on transient errors
+            try:
+                usage = get_usage(owner, customer_id)
+                tickets = get_tickets(owner, customer_id)
+                contract = get_contract(owner, customer_id)
+            except Exception:
+                return error(404, "MISSING_DATA", "Missing data for email composition")
 
         trend = usage.get("trend", "flat")
         open_tickets = int(tickets.get("openTickets", 0))
         renewal_date = contract.get("renewalDate")
         if not renewal_date:
-            raise FileNotFoundError("Missing renewalDate")
+            return error(404, "MISSING_DATA", "Missing renewalDate")
 
         payload = {
             "subject": _compose_subject(customer_id),
@@ -65,8 +75,6 @@ def _handle(event):
         }
         return ok(payload)
 
-    except FileNotFoundError:
-        return error(404, "MISSING_DATA", "Missing data for email composition")
     except ValueError as ve:
         msg = str(ve)
         code = "INVALID_INPUT" if "INVALID_" in msg else "UNAUTHORIZED"

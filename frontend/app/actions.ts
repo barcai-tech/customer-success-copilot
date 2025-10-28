@@ -13,12 +13,16 @@ export type PlannerActionState =
   | { ok?: false; error: string }
   | undefined;
 
-// Shared server action: list companies for current viewer (public + user-owned)
+// Shared server action: list companies for current viewer (user-owned only, or public if not logged in)
 export async function listCompaniesForViewer() {
   const { userId } = await auth();
-  const owners = userId ? ["public", userId] : ["public"];
+  const owners = userId ? [userId] : ["public"];
   const rows = await db
-    .select({ id: companies.externalId, name: companies.name, owner: companies.ownerUserId })
+    .select({
+      id: companies.externalId,
+      name: companies.name,
+      owner: companies.ownerUserId,
+    })
     .from(companies)
     .where(inArray(companies.ownerUserId, owners));
   // Deduplicate by id, prefer user-owned last write wins
@@ -27,7 +31,10 @@ export async function listCompaniesForViewer() {
   return Array.from(map.values());
 }
 
-export async function runPlannerAction(prevState: PlannerActionState, formData: FormData): Promise<PlannerActionState> {
+export async function runPlannerAction(
+  prevState: PlannerActionState,
+  formData: FormData
+): Promise<PlannerActionState> {
   const customerId = String(formData.get("customerId") || "").trim();
   if (!customerId) return { error: "customerId required" };
   try {
@@ -49,7 +56,9 @@ export async function runCopilotFromPromptAction(
   formData: FormData
 ): Promise<CopilotFromPromptActionState> {
   const message = String(formData.get("message") || "").trim();
-  const selectedCustomerId = String(formData.get("selectedCustomerId") || "").trim();
+  const selectedCustomerId = String(
+    formData.get("selectedCustomerId") || ""
+  ).trim();
 
   if (!message) return { error: "message required" };
 
@@ -85,7 +94,9 @@ export async function runLlmPlannerFromPromptAction(
   formData: FormData
 ): Promise<LlmPlannerActionState> {
   const message = String(formData.get("message") || "").trim();
-  const selectedCustomerId = String(formData.get("selectedCustomerId") || "").trim();
+  const selectedCustomerId = String(
+    formData.get("selectedCustomerId") || ""
+  ).trim();
   if (!message) return { error: "message required" };
 
   // Try LLM planner if configured; otherwise fallback to heuristic planner
@@ -98,7 +109,7 @@ export async function runLlmPlannerFromPromptAction(
   try {
     const parsed = await parseIntent(message);
     // Prefer explicit customer mentioned in the prompt; otherwise use UI-selected
-    resolvedCustomerId = parsed.customerId || (selectedCustomerId || undefined);
+    resolvedCustomerId = parsed.customerId || selectedCustomerId || undefined;
   } catch {
     resolvedCustomerId = selectedCustomerId || undefined;
   }

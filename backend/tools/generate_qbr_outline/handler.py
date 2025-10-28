@@ -2,7 +2,7 @@ import json
 from _shared.hmac_auth import require_hmac
 from _shared.models import parse_envelope
 from _shared.responses import ok, error, preflight
-from _shared.s3util import get_json_with_fallback
+from _shared.db import get_usage, get_tickets
 
 
 def _sections(trend: str, open_tickets: int) -> list:
@@ -26,10 +26,21 @@ def _handle(event):
             return preflight()
 
         require_hmac(event)
-        customer_id, _params = parse_envelope(event.get("body") or "")
+        customer_id, params = parse_envelope(event.get("body") or "")
+        owner = (params or {}).get("ownerUserId") or "public"
 
-        usage = get_json_with_fallback(f"usage/{customer_id}.json")
-        tickets = get_json_with_fallback(f"tickets/{customer_id}.json")
+        try:
+            usage = get_usage(owner, customer_id)
+            tickets = get_tickets(owner, customer_id)
+        except Exception:
+            # Retry once on transient errors
+            try:
+                usage = get_usage(owner, customer_id)
+                tickets = get_tickets(owner, customer_id)
+            except Exception:
+                # Return safe defaults if data is missing
+                usage = {"trend": "flat", "missingData": True}
+                tickets = {"openTickets": 0, "missingData": True}
 
         trend = usage.get("trend", "flat")
         open_tickets = int(tickets.get("openTickets", 0))
@@ -37,8 +48,6 @@ def _handle(event):
         payload = {"sections": _sections(trend, open_tickets)}
         return ok(payload)
 
-    except FileNotFoundError:
-        return error(404, "MISSING_DATA", "Missing usage/tickets for QBR outline")
     except ValueError as ve:
         msg = str(ve)
         code = "INVALID_INPUT" if "INVALID_" in msg else "UNAUTHORIZED"

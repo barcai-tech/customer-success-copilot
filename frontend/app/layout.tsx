@@ -6,20 +6,28 @@ import Footer from "@/src/components/Footer";
 import Providers from "@/src/components/Providers";
 import { Toaster } from "@/src/components/ui/sonner";
 
+// Primary font - Inter (used for body text)
 const inter = Inter({
-  subsets: ["latin", "latin-ext"],
+  subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
+  preload: true,
 });
 
+// Secondary fonts - Geist (used for UI elements)
+// Only preload if immediately needed, otherwise load on demand
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
+  preload: false, // Don't preload - load on demand
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+  preload: false, // Don't preload - load on demand
 });
 
 export const metadata: Metadata = {
@@ -36,13 +44,15 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased scroll-smooth`}
+      className={`${inter.variable} ${geistSans.variable} ${geistMono.variable} antialiased`}
     >
-      <body className="flex flex-col min-h-dvh">
+      <body className="flex flex-col h-dvh w-full overflow-hidden">
         <Providers>
           <Header />
-          <main className="flex-1 flex flex-col overflow-hidden mx-auto w-full max-w-[1600px]">
-            {children}
+          <main className="flex-1 w-full min-w-0 overflow-hidden">
+            <div className="h-full mx-auto w-full max-w-[1600px] min-w-0">
+              {children}
+            </div>
           </main>
           <Footer />
 

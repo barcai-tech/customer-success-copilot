@@ -38,6 +38,7 @@ export interface PlannerResult {
   }>;
   planSource?: "llm" | "heuristic";
   planHint?: string;
+  planSummary?: string; // Hybrid planning: summary of what the LLM plans to do
   customerId?: string;
   task?: PlannerTask;
 }

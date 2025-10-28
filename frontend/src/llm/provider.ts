@@ -63,14 +63,20 @@ function isRetryableStatus(status: number): boolean {
 }
 
 function stripHtml(input: string): string {
-  return input.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return input
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 async function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-export async function callLLM(messages: LlmMessage[], opts: ProviderOptions = {}): Promise<LlmResponse> {
+export async function callLLM(
+  messages: LlmMessage[],
+  opts: ProviderOptions = {}
+): Promise<LlmResponse> {
   const apiKey = mustEnv("OPENAI_API_KEY");
   const model = process.env["OPENAI_MODEL"] ?? "gpt-4o-mini";
   const baseUrl = process.env["OPENAI_BASE_URL"] ?? "https://api.openai.com/v1";
@@ -88,11 +94,14 @@ export async function callLLM(messages: LlmMessage[], opts: ProviderOptions = {}
     messages: messages.map((m) => ({
       role: m.role,
       content: m.content ?? "",
-      ...(m.role === "tool" && m.tool_call_id ? { tool_call_id: m.tool_call_id } : {}),
-      ...(m.role === "assistant" && m.tool_calls ? { tool_calls: m.tool_calls } : {}),
+      ...(m.role === "tool" && m.tool_call_id
+        ? { tool_call_id: m.tool_call_id }
+        : {}),
+      ...(m.role === "assistant" && m.tool_calls
+        ? { tool_calls: m.tool_calls }
+        : {}),
     })),
-    ...(opts.tools ? { tools: opts.tools } : {}),
-    tool_choice: "auto",
+    ...(opts.tools ? { tools: opts.tools, tool_choice: "auto" } : {}),
   };
 
   const url = `${baseUrl.replace(/\/$/, "")}/chat/completions`;
@@ -133,7 +142,10 @@ export async function callLLM(messages: LlmMessage[], opts: ProviderOptions = {}
 
       const toolCalls = choice.tool_calls as LlmToolCall[] | undefined;
       if (toolCalls && toolCalls.length > 0) {
-        return { type: "tool_calls", assistant: { content: choice.content ?? null, tool_calls: toolCalls } };
+        return {
+          type: "tool_calls",
+          assistant: { content: choice.content ?? null, tool_calls: toolCalls },
+        };
       }
       const content: string = choice.content ?? "";
       return { type: "assistant", message: content };
@@ -145,7 +157,7 @@ export async function callLLM(messages: LlmMessage[], opts: ProviderOptions = {}
         lastErr = e as Error;
         continue;
       }
-      throw (lastErr ?? (e as Error));
+      throw lastErr ?? (e as Error);
     }
   }
   throw new Error("LLM: unreachable state");

@@ -11,7 +11,9 @@ export default async function DashboardPage() {
     return (
       <div className="p-6 space-y-6">
         <h1 className="text-2xl font-semibold">Customers</h1>
-        <p className="text-sm text-muted-foreground">Please sign in to view your customers and actions.</p>
+        <p className="text-sm text-muted-foreground">
+          Please sign in to view your customers and actions.
+        </p>
       </div>
     );
   }
@@ -21,7 +23,7 @@ export default async function DashboardPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Customers</h1>
-        <DashboardActions />
+        <DashboardActions hasCustomers={rows.length > 0} />
       </div>
       <CustomersTable initialRows={rows as any} />
     </div>

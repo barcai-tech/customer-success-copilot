@@ -20,12 +20,19 @@ const TASK_KEYWORDS: Record<TaskType, string[]> = {
 };
 
 function normalize(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function matchTask(text: string): TaskType | undefined {
   const t = normalize(text);
-  for (const [task, keywords] of Object.entries(TASK_KEYWORDS) as [TaskType, string[]][]) {
+  for (const [task, keywords] of Object.entries(TASK_KEYWORDS) as [
+    TaskType,
+    string[]
+  ][]) {
     if (keywords.some((k) => t.includes(k))) return task;
   }
   return undefined;
@@ -34,15 +41,26 @@ function matchTask(text: string): TaskType | undefined {
 function variantsForName(name: string): string[] {
   const n = normalize(name);
   const parts = n.split(" ");
-  const filtered = parts.filter((p) => !["corp", "corporation", "inc", "ltd", "limited"].includes(p));
-  return Array.from(new Set([n, filtered.join(" "), ...(filtered.length ? filtered : [])]));
+  const filtered = parts.filter(
+    (p) => !["corp", "corporation", "inc", "ltd", "limited"].includes(p)
+  );
+  return Array.from(
+    new Set([n, filtered.join(" "), ...(filtered.length ? filtered : [])])
+  );
 }
 
-async function resolveCustomers(): Promise<Array<{ id: string; name: string }>> {
+async function resolveCustomers(): Promise<
+  Array<{ id: string; name: string }>
+> {
   const { userId } = await auth();
-  const owners = userId ? ["public", userId] : ["public"];
+  // Logged-in users see only their own customers; guests see public customers
+  const owners = userId ? [userId] : ["public"];
   const rows = await db
-    .select({ id: companies.externalId, name: companies.name, owner: companies.ownerUserId })
+    .select({
+      id: companies.externalId,
+      name: companies.name,
+      owner: companies.ownerUserId,
+    })
     .from(companies)
     .where(inArray(companies.ownerUserId, owners));
   // Deduplicate by external id, prefer user-owned if present (processed in query order undefined; leave as is)
@@ -61,7 +79,10 @@ async function matchCustomer(text: string): Promise<string | undefined> {
   const t = normalize(text);
   const all = await resolveCustomers();
   for (const c of all) {
-    const candidates = new Set<string>([normalize(c.id), ...variantsForName(c.name)]);
+    const candidates = new Set<string>([
+      normalize(c.id),
+      ...variantsForName(c.name),
+    ]);
     for (const cand of candidates) {
       if (!cand) continue;
       if (t.includes(cand)) return c.id;
