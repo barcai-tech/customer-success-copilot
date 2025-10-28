@@ -118,7 +118,14 @@ export async function GET(req: NextRequest) {
         const { userId } = await auth();
         // Use ownerUserId from request if provided (for eval), otherwise use authenticated user's ID
         const ownerUserId = requestOwnerUserId || userId || "public";
-        console.log("[DEBUG] Clerk userId:", userId, "requestOwnerUserId:", requestOwnerUserId, "final ownerUserId:", ownerUserId);
+        console.log(
+          "[DEBUG] Clerk userId:",
+          userId,
+          "requestOwnerUserId:",
+          requestOwnerUserId,
+          "final ownerUserId:",
+          ownerUserId
+        );
         const usedTools: Array<{
           name: string;
           tookMs?: number;

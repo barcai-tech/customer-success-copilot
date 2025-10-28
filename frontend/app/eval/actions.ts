@@ -151,15 +151,20 @@ export async function runEvaluation(input: unknown): Promise<EvalSession> {
 
     // Fetch customer details from database
     const customerDetails = await db
-      .select({ 
-        id: companies.externalId, 
+      .select({
+        id: companies.externalId,
         name: companies.name,
-        ownerUserId: companies.ownerUserId 
+        ownerUserId: companies.ownerUserId,
       })
       .from(companies)
       .where(eq(companies.ownerUserId, userId));
 
-    const customerMap = new Map(customerDetails.map((c) => [c.id, { name: c.name, ownerUserId: c.ownerUserId }]));
+    const customerMap = new Map(
+      customerDetails.map((c) => [
+        c.id,
+        { name: c.name, ownerUserId: c.ownerUserId },
+      ])
+    );
 
     // Run evaluations
     const sessionId = randomUUID();
