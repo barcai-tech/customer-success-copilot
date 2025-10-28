@@ -1,6 +1,7 @@
 "use server";
 
 import { runPlanner } from "@/src/agent/planner";
+import type { PlannerResult } from "@/src/agent/planner";
 import { parseIntent } from "@/src/agent/intent";
 import { runLlmPlanner } from "@/src/agent/llmPlanner";
 import { auth } from "@clerk/nextjs/server";
@@ -9,7 +10,7 @@ import { companies } from "@/src/db/schema";
 import { inArray } from "drizzle-orm";
 
 export type PlannerActionState =
-  | { ok: true; result: Awaited<ReturnType<typeof runPlanner>> }
+  | { ok: true; result: PlannerResult }
   | { ok?: false; error: string }
   | undefined;
 

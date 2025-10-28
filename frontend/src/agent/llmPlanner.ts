@@ -643,17 +643,28 @@ function sanitizePlannerResult(
       .map((a) => redactString(String(a)))
       .filter(Boolean) as string[];
   if (copy.emailDraft) {
-    const ed = { ...copy.emailDraft } as { subject?: string; body?: string };
-    if (typeof ed.subject === "string") ed.subject = redactString(ed.subject);
-    if (typeof ed.body === "string") ed.body = redactString(ed.body);
-    copy.emailDraft = ed;
+    // emailDraft should have both subject and body as required strings
+    if (
+      typeof copy.emailDraft.subject === "string" &&
+      typeof copy.emailDraft.body === "string"
+    ) {
+      copy.emailDraft.subject = redactString(copy.emailDraft.subject);
+      copy.emailDraft.body = redactString(copy.emailDraft.body);
+    } else {
+      // If either field is missing, discard the emailDraft
+      copy.emailDraft = undefined;
+    }
   }
   if (copy.decisionLog && Array.isArray(copy.decisionLog)) {
     const first = copy.decisionLog[0] as unknown;
     if (typeof first === "string") {
-      copy.decisionLog = (copy.decisionLog as string[]).map((d) =>
-        redactString(d)
-      );
+      // Convert string array to object array
+      const stringLog = copy.decisionLog as unknown as string[];
+      copy.decisionLog = stringLog.map<{
+        reason: string;
+      }>((d) => ({
+        reason: redactString(d),
+      }));
     } else {
       copy.decisionLog = (
         copy.decisionLog as Array<{

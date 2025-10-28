@@ -2,20 +2,40 @@
 
 import { useActionState } from "react";
 import type { PlannerActionState } from "@/app/actions";
+import type { PlannerResult } from "@/src/agent/planner";
 import { runPlannerAction } from "@/app/actions";
 
 export default function PlannerForm() {
-  const [state, formAction, pending] = useActionState<PlannerActionState, FormData>(runPlannerAction, undefined);
+  const [state, formAction, pending] = useActionState<
+    PlannerActionState,
+    FormData
+  >(runPlannerAction, undefined);
 
   return (
     <div className="space-y-6">
-      <form action={formAction} className="space-y-3 border rounded-lg p-4 bg-card">
+      <form
+        action={formAction}
+        className="space-y-3 border rounded-lg p-4 bg-card"
+      >
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium mb-1">Customer</label>
             <div className="flex gap-2">
-              <input name="customerId" defaultValue="acme-001" className="border px-3 py-2 rounded w-full" />
-              <select className="border rounded px-2" defaultValue="acme-001" onChange={(e)=>{const el=document.querySelector('input[name="customerId"]') as HTMLInputElement;if(el) el.value=e.target.value;}}>
+              <input
+                name="customerId"
+                defaultValue="acme-001"
+                className="border px-3 py-2 rounded w-full"
+              />
+              <select
+                className="border rounded px-2"
+                defaultValue="acme-001"
+                onChange={(e) => {
+                  const el = document.querySelector(
+                    'input[name="customerId"]'
+                  ) as HTMLInputElement;
+                  if (el) el.value = e.target.value;
+                }}
+              >
                 <option value="acme-001">acme-001</option>
                 <option value="globex-001">globex-001</option>
                 <option value="initech-001">initech-001</option>
@@ -24,21 +44,25 @@ export default function PlannerForm() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Task</label>
-            <select className="border rounded px-2 w-full" defaultValue="renewal">
+            <select
+              className="border rounded px-2 w-full"
+              defaultValue="renewal"
+            >
               <option value="renewal">Renewal brief</option>
               <option value="qbr">QBR prep</option>
               <option value="churn">Churn review</option>
             </select>
           </div>
         </div>
-        <button className="bg-primary text-primary-foreground px-4 py-2 rounded" disabled={pending}>
+        <button
+          className="bg-primary text-primary-foreground px-4 py-2 rounded"
+          disabled={pending}
+        >
           {pending ? "Running…" : "Run Copilot"}
         </button>
       </form>
 
-      {state?.ok && (
-        <Results result={state.result} />
-      )}
+      {state?.ok && <Results result={state.result} />}
 
       {state && !state.ok && (
         <div className="text-red-600 text-sm">{state.error}</div>
@@ -47,31 +71,51 @@ export default function PlannerForm() {
   );
 }
 
-function Results({ result }: { result: NonNullable<PlannerActionState> extends { ok: true; result: infer R } ? R : never }) {
+function Results({ result }: { result: PlannerResult }) {
   return (
     <div className="space-y-4">
-      {result.summary && <p><span className="font-medium">Summary:</span> {result.summary}</p>}
+      {result.summary && (
+        <p>
+          <span className="font-medium">Summary:</span> {result.summary}
+        </p>
+      )}
       {result.health && (
         <div className="text-sm border rounded-lg p-3 bg-card">
           <div className="font-medium mb-1">Health</div>
-          <div>Score: {result.health.score} ({result.health.riskLevel})</div>
+          <div>
+            Score: {result.health.score} ({result.health.riskLevel})
+          </div>
           <div>Signals: {result.health.signals.join(", ")}</div>
         </div>
       )}
       {result.emailDraft && (
-        <EmailDraft subject={result.emailDraft.subject} body={result.emailDraft.body} />
+        <EmailDraft
+          subject={result.emailDraft.subject}
+          body={result.emailDraft.body}
+        />
       )}
       <div className="text-sm border rounded-lg p-3 bg-card">
         <div className="font-medium mb-1">Used Tools</div>
         <ul className="flex flex-wrap gap-2">
           {result.usedTools.map((t, i) => (
-            <li key={i} className={`text-xs px-2 py-1 rounded border ${t.error ? 'bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900' : 'bg-muted text-foreground/80'}`}>
-              {t.name}{typeof t.tookMs === 'number' ? ` • ${t.tookMs} ms` : ''}{t.error ? ` • ${t.error}` : ''}
+            <li
+              key={i}
+              className={`text-xs px-2 py-1 rounded border ${
+                t.error
+                  ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/40 dark:text-red-200 dark:border-red-900"
+                  : "bg-muted text-foreground/80"
+              }`}
+            >
+              {t.name}
+              {typeof t.tookMs === "number" ? ` • ${t.tookMs} ms` : ""}
+              {t.error ? ` • ${t.error}` : ""}
             </li>
           ))}
         </ul>
       </div>
-      {result.notes && <div className="text-xs text-gray-600">{result.notes}</div>}
+      {result.notes && (
+        <div className="text-xs text-gray-600">{result.notes}</div>
+      )}
     </div>
   );
 }

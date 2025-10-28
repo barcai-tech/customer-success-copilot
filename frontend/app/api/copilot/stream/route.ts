@@ -573,7 +573,7 @@ export async function GET(req: NextRequest) {
                   try {
                     const schema = TOOL_SCHEMAS[name];
                     const t0 = performance.now();
-                    let res = await invokeTool(
+                    const res = await invokeTool(
                       name,
                       { customerId: cid, params },
                       schema
@@ -623,8 +623,10 @@ export async function GET(req: NextRequest) {
                       }
                       // If the tool indicates missingData, track a note
                       try {
-                        const d: any = (res as EnvelopeSuccess<any>).data;
-                        if (d && d.missingData) {
+                        const d = (
+                          res as EnvelopeSuccess<Record<string, unknown>>
+                        ).data;
+                        if (d && (d as Record<string, unknown>).missingData) {
                           endRecord.missing = true;
                           if (name === "get_customer_usage")
                             missingNotes.add("usage");
@@ -667,8 +669,9 @@ export async function GET(req: NextRequest) {
                 } catch (outerError) {
                   // Catch any errors in the entire tool execution (including send)
                   console.error(`[Tool ${name} outer error]`, outerError);
-                  endRecord.error =
-                    (outerError as Error).message || "UNKNOWN_ERROR";
+                  endRecord.error = redactString(
+                    (outerError as Error).message || "UNKNOWN_ERROR"
+                  );
                   usedTools.push({ name, error: endRecord.error });
 
                   // Still push a message to maintain conversation consistency
@@ -854,13 +857,23 @@ function redactString(input: string): string {
 function sanitizePlannerResult(
   input: Partial<PlannerResultJson>
 ): PlannerResultJson {
+  // Validate emailDraft has required fields
+  let validEmailDraft: { subject: string; body: string } | undefined;
+  if (
+    input.emailDraft &&
+    typeof input.emailDraft.subject === "string" &&
+    typeof input.emailDraft.body === "string"
+  ) {
+    validEmailDraft = input.emailDraft;
+  }
+
   const copy: PlannerResultJson = {
     usedTools: input.usedTools ?? [],
     decisionLog: input.decisionLog,
     summary: input.summary,
     health: input.health,
     actions: input.actions,
-    emailDraft: input.emailDraft,
+    emailDraft: validEmailDraft,
     notes: input.notes,
     planSource: input.planSource,
     planHint: input.planHint,
@@ -874,17 +887,19 @@ function sanitizePlannerResult(
       .map((a) => redactString(String(a)))
       .filter(Boolean) as string[];
   if (copy.emailDraft) {
-    const ed = { ...copy.emailDraft } as { subject?: string; body?: string };
-    if (typeof ed.subject === "string") ed.subject = redactString(ed.subject);
-    if (typeof ed.body === "string") ed.body = redactString(ed.body);
-    copy.emailDraft = ed;
+    copy.emailDraft.subject = redactString(copy.emailDraft.subject);
+    copy.emailDraft.body = redactString(copy.emailDraft.body);
   }
   if (copy.decisionLog && Array.isArray(copy.decisionLog)) {
     const first = copy.decisionLog[0] as unknown;
     if (typeof first === "string") {
-      copy.decisionLog = (copy.decisionLog as string[]).map((d) =>
-        redactString(d)
-      );
+      // Convert string array to object array
+      const stringLog = copy.decisionLog as unknown as string[];
+      copy.decisionLog = stringLog.map<{
+        reason: string;
+      }>((d) => ({
+        reason: redactString(d),
+      }));
     } else {
       copy.decisionLog = (
         copy.decisionLog as Array<{

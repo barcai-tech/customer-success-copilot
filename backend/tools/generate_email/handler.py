@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 
 from _shared.hmac_auth import require_hmac
 from _shared.models import parse_envelope
@@ -89,7 +89,8 @@ def handler(event, context):
 
 if __name__ == "__main__":
     from _shared.hmac_auth import sign
-    import os, time
+    import os
+    import time
 
     os.environ.setdefault("HMAC_SECRET", "dev-secret")
     body = json.dumps({"customerId": "acme-001", "params": {}})

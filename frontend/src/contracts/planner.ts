@@ -21,11 +21,7 @@ export const PlannerResultSchema = z.object({
   summary: z.string().optional(),
   health: HealthSchema.optional(),
   actions: z.array(z.string()).optional(),
-  // Accept partial emailDraft from the LLM and clean it up post-parse
-  emailDraft: z
-    .object({ subject: z.string().optional(), body: z.string().optional() })
-    .partial()
-    .optional(),
+  emailDraft: z.object({ subject: z.string(), body: z.string() }).optional(),
   // Be permissive with usedTools coming from the LLM (we overwrite it later)
   usedTools: z.array(z.any()).optional().default([]),
   notes: z.string().optional(),
@@ -49,7 +45,15 @@ export const PlannerResultSchema = z.object({
         return (v as string[]).map((reason) => ({ reason }));
       }
       return v;
-    }),
+    }) as z.ZodType<
+    | Array<{
+        step?: number;
+        tool?: string;
+        action?: string;
+        reason: string;
+      }>
+    | undefined
+  >,
   planSource: z.enum(["llm", "heuristic"]).optional(),
   planHint: z.string().optional(),
   planSummary: z.string().optional(), // Hybrid planning: summary of planned execution
