@@ -1,9 +1,42 @@
 "use client";
 
 import { useActionState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { PlannerActionState } from "@/app/actions";
 import type { PlannerResult } from "@/src/agent/planner";
 import { runPlannerAction } from "@/app/actions";
+import { plannerFormSchema, type PlannerFormData } from "@/src/lib/validation";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/src/components/ui/form";
+import { Button } from "@/src/components/ui/button";
+import { Input } from "@/src/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/src/components/ui/select";
+
+const CUSTOMER_OPTIONS = [
+  { value: "acme-001", label: "Acme Corp (acme-001)" },
+  { value: "globex-001", label: "Globex Corp (globex-001)" },
+  { value: "initech-001", label: "Initech (initech-001)" },
+];
+
+const TASK_OPTIONS = [
+  { value: "renewal", label: "Renewal brief" },
+  { value: "qbr", label: "QBR prep" },
+  { value: "churn", label: "Churn review" },
+  { value: "eval", label: "Evaluation" },
+];
 
 export default function PlannerForm() {
   const [state, formAction, pending] = useActionState<
@@ -11,56 +44,108 @@ export default function PlannerForm() {
     FormData
   >(runPlannerAction, undefined);
 
+  const form = useForm<PlannerFormData>({
+    resolver: zodResolver(plannerFormSchema),
+    defaultValues: {
+      customerId: "acme-001",
+      task: "renewal" as const,
+      message: "",
+    },
+  });
+
+  const handleSubmit = async (data: PlannerFormData) => {
+    const formData = new FormData();
+    formData.append("customerId", data.customerId);
+    formData.append("task", data.task);
+    formData.append("message", data.message);
+    await formAction(formData);
+  };
+
   return (
     <div className="space-y-6">
-      <form
-        action={formAction}
-        className="space-y-3 border rounded-lg p-4 bg-card"
-      >
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium mb-1">Customer</label>
-            <div className="flex gap-2">
-              <input
-                name="customerId"
-                defaultValue="acme-001"
-                className="border px-3 py-2 rounded w-full"
-              />
-              <select
-                className="border rounded px-2"
-                defaultValue="acme-001"
-                onChange={(e) => {
-                  const el = document.querySelector(
-                    'input[name="customerId"]'
-                  ) as HTMLInputElement;
-                  if (el) el.value = e.target.value;
-                }}
-              >
-                <option value="acme-001">acme-001</option>
-                <option value="globex-001">globex-001</option>
-                <option value="initech-001">initech-001</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Task</label>
-            <select
-              className="border rounded px-2 w-full"
-              defaultValue="renewal"
-            >
-              <option value="renewal">Renewal brief</option>
-              <option value="qbr">QBR prep</option>
-              <option value="churn">Churn review</option>
-            </select>
-          </div>
-        </div>
-        <button
-          className="bg-primary text-primary-foreground px-4 py-2 rounded"
-          disabled={pending}
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(handleSubmit)}
+          className="space-y-4 border rounded-lg p-4 bg-card"
         >
-          {pending ? "Running…" : "Run Copilot"}
-        </button>
-      </form>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="customerId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Customer</FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a customer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CUSTOMER_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="task"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Task</FormLabel>
+                  <FormControl>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a task" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <FormField
+            control={form.control}
+            name="message"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Instructions (optional)</FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    placeholder="e.g., Focus on customer health"
+                    maxLength={2000}
+                    disabled={pending}
+                  />
+                </FormControl>
+                <FormMessage />
+                <div className="text-xs text-muted-foreground">
+                  {field.value?.length || 0}/2000 characters
+                </div>
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" disabled={pending} className="w-full">
+            {pending ? "Running…" : "Run Copilot"}
+          </Button>
+        </form>
+      </Form>
 
       {state?.ok && <Results result={state.result} />}
 

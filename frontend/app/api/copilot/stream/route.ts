@@ -1,6 +1,30 @@
 import { NextRequest } from "next/server";
 import { parseIntent, parseTask } from "@/src/agent/intent";
-import { getToolRegistry } from "@/src/agent/tool-registry";
+import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
+import { db } from "@/src/db/client";
+import { companies } from "@/src/db/schema";
+import { and, eq } from "drizzle-orm";
+import { logger } from "@/src/lib/logger";
+import type { TaskType } from "@/src/store/copilot-store";
+import { getRandomOutOfScopeReply } from "@/src/agent/outOfScopeReplies";
+
+// Modular agent imports
+import {
+  synthesizeActions,
+  synthesizeSummary,
+  sanitizePlannerResult,
+  redactString,
+} from "@/src/agent/synthesizer";
+import {
+  isOutOfScope,
+  extractRequestedCustomerName,
+  namesEqualIgnoreCase,
+} from "@/src/agent/utils";
+import type { ToolDataMap } from "@/src/agent/types";
+import { TOOL_SCHEMAS } from "@/src/agent/types";
+import type { PlannerResultJson } from "@/src/contracts/planner";
+import { PlannerResultSchema } from "@/src/contracts/planner";
 import { callLLM, type LlmMessage } from "@/src/llm/provider";
 import {
   invokeTool,
@@ -8,50 +32,16 @@ import {
   type ResponseEnvelope,
   type EnvelopeSuccess,
 } from "@/src/agent/invokeTool";
-import { z } from "zod";
-import {
-  UsageSchema,
-  TicketsSchema,
-  ContractSchema,
-  HealthSchema,
-  EmailSchema,
-  QbrSchema,
-  type Usage,
-  type Tickets,
-  type Contract,
-  type Health,
-  type Email,
-  type Qbr,
+import type {
+  Health,
+  Usage,
+  Tickets,
+  Contract,
+  Email,
+  Qbr,
 } from "@/src/contracts/tools";
-import {
-  PlannerResultSchema,
-  type PlannerResultJson,
-} from "@/src/contracts/planner";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/src/db/client";
-import { companies } from "@/src/db/schema";
-import { and, eq } from "drizzle-orm";
-import { getRandomOutOfScopeReply } from "@/src/agent/outOfScopeReplies";
-import { logger } from "@/src/lib/logger";
-import type { TaskType } from "@/src/store/copilot-store";
-
-type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
-type ToolDataMap = {
-  get_customer_usage: Usage;
-  get_recent_tickets: Tickets;
-  get_contract_info: Contract;
-  calculate_health: Health;
-  generate_email: Email;
-  generate_qbr_outline: Qbr;
-};
-const TOOL_SCHEMAS: ToolSchemaMap = {
-  get_customer_usage: UsageSchema,
-  get_recent_tickets: TicketsSchema,
-  get_contract_info: ContractSchema,
-  calculate_health: HealthSchema,
-  generate_email: EmailSchema,
-  generate_qbr_outline: QbrSchema,
-};
+import { HealthSchema } from "@/src/contracts/tools";
+import { getToolRegistry } from "@/src/agent/tool-registry";
 
 export const dynamic = "force-dynamic";
 
@@ -73,10 +63,14 @@ export async function GET(req: NextRequest) {
       ownerUserId: searchParams.get("ownerUserId") || undefined,
       eval: searchParams.get("eval") || undefined,
     });
-  } catch (e) {
+  } catch {
     return new Response("Invalid query parameters", { status: 400 });
   }
-  const { message, selectedCustomerId, ownerUserId: requestOwnerUserId } = parsedQuery;
+  const {
+    message,
+    selectedCustomerId,
+    ownerUserId: requestOwnerUserId,
+  } = parsedQuery;
 
   const stream = new ReadableStream({
     start: async (controller) => {
@@ -86,9 +80,7 @@ export async function GET(req: NextRequest) {
         if (closed) return;
         try {
           controller.enqueue(enc.encode(`event: ${type}\n`));
-          controller.enqueue(
-            enc.encode(`data: ${JSON.stringify(data)}\n\n`)
-          );
+          controller.enqueue(enc.encode(`data: ${JSON.stringify(data)}\n\n`));
         } catch {
           // If enqueue fails, mark stream as closed to avoid further writes
           closed = true;
@@ -206,7 +198,11 @@ export async function GET(req: NextRequest) {
           error?: string;
         }> = [];
         // Track latest missing-data state per domain; overwritten by later tool results
-        const missingState: { usage?: boolean; tickets?: boolean; contract?: boolean } = {};
+        const missingState: {
+          usage?: boolean;
+          tickets?: boolean;
+          contract?: boolean;
+        } = {};
         const cache: Partial<ToolDataMap> = {};
 
         // Track timing for performance analysis
@@ -431,205 +427,6 @@ export async function GET(req: NextRequest) {
           },
         ];
 
-        const daysUntil = (dateStr: string): number | null => {
-          const d = new Date(dateStr);
-          if (isNaN(d.getTime())) return null;
-          const ms = d.getTime() - Date.now();
-          return Math.ceil(ms / (1000 * 60 * 60 * 24));
-        };
-
-        const synthesizeActions = (taskHint?: string | null): string[] => {
-          const usage = cache.get_customer_usage;
-          const tickets = cache.get_recent_tickets;
-          const contract = cache.get_contract_info;
-          const health = cache.calculate_health;
-          const actions: string[] = [];
-          if (health?.riskLevel) {
-            const risk = String(health.riskLevel).toLowerCase();
-            if (risk === "low") {
-              actions.push(
-                "Share recent wins and outcomes with sponsor",
-                "Identify expansion opportunities and champions",
-                "Schedule next QBR"
-              );
-            } else if (risk === "medium") {
-              actions.push(
-                "Confirm rollout of priority features",
-                "Schedule health review with champion",
-                "Review support tickets for emerging risks"
-              );
-            } else if (risk === "high") {
-              actions.push(
-                "Create recovery plan with measurable milestones",
-                "Escalate to executive sponsor for alignment",
-                "Daily check-in until risk subsides"
-              );
-            }
-          }
-          if (usage?.trend === "down") {
-            actions.push(
-              "Investigate drop in usage with product analytics",
-              "Run adoption campaign and refresher training"
-            );
-          } else if (usage?.trend === "flat") {
-            actions.push("Drive adoption of underused features");
-          } else if (usage?.trend === "up") {
-            actions.push("Highlight adoption growth in executive update");
-          }
-          if (typeof tickets?.openTickets === "number") {
-            if (tickets.openTickets > 3)
-              actions.push("Triage and resolve open tickets with support lead");
-            else if (tickets.openTickets > 0)
-              actions.push("Follow up on open tickets and communicate ETA");
-          }
-          if (contract?.renewalDate) {
-            const days = daysUntil(contract.renewalDate);
-            if (days !== null) {
-              if (days <= 30) {
-                actions.push(
-                  "Lock renewal timeline and decision owners",
-                  "Deliver value realization deck",
-                  "Draft order form and route for legal review",
-                  "Set weekly exec cadence until signature"
-                );
-              } else if (days <= 60) {
-                actions.push(
-                  "Run stakeholder alignment call",
-                  "Confirm procurement steps and blockers",
-                  "Share pricing and packaging options"
-                );
-              } else if (days <= 90) {
-                actions.push(
-                  "Prepare renewal brief and value summary",
-                  "Book renewal prep call",
-                  "Align pricing and legal timelines"
-                );
-              } else if (days <= 180) {
-                actions.push(
-                  "Plan pre-renewal business review and success plan"
-                );
-              }
-            }
-          }
-          const t = (taskHint || "").toLowerCase();
-          if (t === "renewal") {
-            actions.unshift(
-              "Create renewal success summary",
-              "Identify expansion levers and risks"
-            );
-          } else if (t === "qbr") {
-            actions.unshift(
-              "Draft QBR agenda and collect metrics",
-              "Confirm attendee list and goals"
-            );
-          } else if (
-            t === "churn" ||
-            String(health?.riskLevel || "").toLowerCase() === "high"
-          ) {
-            actions.unshift(
-              "Open risk mitigation plan",
-              "Assign DRI and timeline"
-            );
-          }
-          const out: string[] = [];
-          const seen = new Set<string>();
-          for (const a of actions) {
-            const k = a.toLowerCase();
-            if (!seen.has(k)) {
-              seen.add(k);
-              out.push(a);
-            }
-          }
-          return out;
-        };
-
-        const synthesizeSummary = (): string | undefined => {
-          const usage = cache.get_customer_usage;
-          const tickets = cache.get_recent_tickets;
-          const contract = cache.get_contract_info;
-          const health = cache.calculate_health;
-          const parts: string[] = [];
-
-          // Build a human-friendly narrative
-          if (health?.score && health?.riskLevel) {
-            parts.push(
-              `Health score is ${
-                health.score
-              }/100 with ${health.riskLevel.toLowerCase()} risk`
-            );
-          }
-
-          if (usage?.trend) {
-            const trendText =
-              usage.trend === "up"
-                ? "increasing"
-                : usage.trend === "down"
-                ? "declining"
-                : "stable";
-            parts.push(`usage is ${trendText}`);
-          }
-
-          if (typeof tickets?.openTickets === "number") {
-            if (tickets.openTickets === 0) {
-              parts.push("no open support tickets");
-            } else if (tickets.openTickets === 1) {
-              parts.push("1 open support ticket");
-            } else {
-              parts.push(`${tickets.openTickets} open support tickets`);
-            }
-          }
-
-          if (contract?.renewalDate) {
-            // Parse the renewal date - handle both ISO format and simple date strings
-            const renewalDate = new Date(contract.renewalDate);
-
-            // Check if date is valid
-            if (!isNaN(renewalDate.getTime())) {
-              const daysUntil = Math.ceil(
-                (renewalDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-              );
-              if (daysUntil < 0) {
-                parts.push("renewal date has passed");
-              } else if (daysUntil === 0) {
-                parts.push("renewal is today");
-              } else if (daysUntil <= 30) {
-                parts.push(`renewal in ${daysUntil} days`);
-              } else if (daysUntil <= 90) {
-                const months = Math.floor(daysUntil / 30);
-                parts.push(
-                  `renewal in ${months} ${months === 1 ? "month" : "months"}`
-                );
-              } else {
-                // Use unambiguous format: "12 January 2026"
-                const day = renewalDate.getUTCDate();
-                const monthNames = [
-                  "January",
-                  "February",
-                  "March",
-                  "April",
-                  "May",
-                  "June",
-                  "July",
-                  "August",
-                  "September",
-                  "October",
-                  "November",
-                  "December",
-                ];
-                const month = monthNames[renewalDate.getUTCMonth()];
-                const year = renewalDate.getUTCFullYear();
-                parts.push(`renewal on ${day} ${month} ${year}`);
-              }
-            } else {
-              logger.warn("[synthesizeSummary] Invalid renewal date", {
-                renewalDate: contract.renewalDate,
-              });
-            }
-          }
-
-          return parts.length ? parts.join(", ") + "." : undefined;
-        };
-
         // LLM loop (minimal streaming)
         let toolRounds = 0;
         for (let step = 0; step < 8; step++) {
@@ -759,11 +556,16 @@ export async function GET(req: NextRequest) {
                         const d = (
                           res as EnvelopeSuccess<Record<string, unknown>>
                         ).data as Record<string, unknown> | undefined;
-                        const isMissing = Boolean(d && (d as any).missingData);
+                        const isMissing = Boolean(
+                          d && "missingData" in d && d.missingData
+                        );
                         if (isMissing) endRecord.missing = true;
-                        if (name === "get_customer_usage") missingState.usage = isMissing;
-                        if (name === "get_recent_tickets") missingState.tickets = isMissing;
-                        if (name === "get_contract_info") missingState.contract = isMissing;
+                        if (name === "get_customer_usage")
+                          missingState.usage = isMissing;
+                        if (name === "get_recent_tickets")
+                          missingState.tickets = isMissing;
+                        if (name === "get_contract_info")
+                          missingState.contract = isMissing;
                       } catch {}
                       // Stream only health immediately for progressive UX
                       // Summary and actions will only appear in final event
@@ -797,18 +599,20 @@ export async function GET(req: NextRequest) {
                   });
                 } catch (outerError) {
                   // Catch any errors in the entire tool execution (including send)
-                  const safeName =
-                    [
-                      "get_customer_usage",
-                      "get_recent_tickets",
-                      "get_contract_info",
-                      "calculate_health",
-                      "generate_email",
-                      "generate_qbr_outline",
-                    ].includes(name)
-                      ? name
-                      : "unknown";
-                  logger.error("[Tool outer error]", { tool: safeName, error: outerError });
+                  const safeName = [
+                    "get_customer_usage",
+                    "get_recent_tickets",
+                    "get_contract_info",
+                    "calculate_health",
+                    "generate_email",
+                    "generate_qbr_outline",
+                  ].includes(name)
+                    ? name
+                    : "unknown";
+                  logger.error("[Tool outer error]", {
+                    tool: safeName,
+                    error: outerError,
+                  });
                   endRecord.error = redactString(
                     (outerError as Error).message || "UNKNOWN_ERROR"
                   );
@@ -831,18 +635,20 @@ export async function GET(req: NextRequest) {
                   try {
                     send("tool:end", endRecord);
                   } catch (sendError) {
-                    const safeName =
-                      [
-                        "get_customer_usage",
-                        "get_recent_tickets",
-                        "get_contract_info",
-                        "calculate_health",
-                        "generate_email",
-                        "generate_qbr_outline",
-                      ].includes(name)
-                        ? name
-                        : "unknown";
-                    logger.error("[Failed to send tool:end]", { tool: safeName, error: sendError });
+                    const safeName = [
+                      "get_customer_usage",
+                      "get_recent_tickets",
+                      "get_contract_info",
+                      "calculate_health",
+                      "generate_email",
+                      "generate_qbr_outline",
+                    ].includes(name)
+                      ? name
+                      : "unknown";
+                    logger.error("[Failed to send tool:end]", {
+                      tool: safeName,
+                      error: sendError,
+                    });
                   }
                 }
               })
@@ -909,12 +715,12 @@ export async function GET(req: NextRequest) {
             } catch {}
           }
           if (!out.summary) {
-            const s = synthesizeSummary();
+            const s = synthesizeSummary(cache);
             if (s) out.summary = s;
             else out.summary = "Analysis complete."; // Final fallback
           }
           if (!out.actions || out.actions.length === 0) {
-            const acts = synthesizeActions(task);
+            const acts = synthesizeActions(cache, task);
             if (acts.length) out.actions = acts;
           }
           out.planSource = "llm";
@@ -978,7 +784,7 @@ export async function GET(req: NextRequest) {
 
         // Step limit fallback with partials
         const partial: PlannerResultJson = {
-          summary: synthesizeSummary() || "Unable to complete analysis.",
+          summary: synthesizeSummary(cache) || "Unable to complete analysis.",
           planSource: "llm",
           customerId,
           usedTools,
@@ -989,7 +795,7 @@ export async function GET(req: NextRequest) {
         if (cache.generate_qbr_outline)
           partial.actions = cache.generate_qbr_outline.sections || [];
         if (!partial.actions || partial.actions.length === 0) {
-          partial.actions = synthesizeActions(task);
+          partial.actions = synthesizeActions(cache, task);
         }
 
         // Add timing info to fallback result
@@ -1055,162 +861,6 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// Heuristic extraction of a customer name mentioned by the user.
-// Looks for:
-// 1) quoted text, e.g. "Acme Corp"
-// 2) patterns after 'of' or 'for', e.g. health of Initech or QBR for Mega Corp
-// 3) a capitalized multi-word phrase fallback
-function extractRequestedCustomerName(message: string): string | undefined {
-  const text = message.trim();
-  // 1) Quoted phrase
-  const quoted = text.match(/["“”'‘’]([^"“”'‘’]{2,})["“”'‘’]/);
-  if (quoted?.[1]) return quoted[1].trim();
-  // 2) of|for pattern
-  const ofFor = text.match(/\b(?:of|for)\s+([A-Z][\w&-]*(?:\s+[A-Z][\w&-]*)*)/);
-  if (ofFor?.[1]) return ofFor[1].trim();
-  // 3) Capitalized multi-word sequence
-  const caps = text.match(/\b([A-Z][\w&-]*(?:\s+[A-Z][\w&-]*){1,3})\b/);
-  if (caps?.[1]) return caps[1].trim();
-  return undefined;
-}
+// Helper functions moved to src/agent/utils.ts
 
-function namesEqualIgnoreCase(a: string, b: string): boolean {
-  const norm = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
-  return norm(a) === norm(b);
-}
-
-function redactString(input: string): string {
-  const patterns: RegExp[] = [
-    // Authorization headers (Bearer tokens)
-    /authorization\s*:\s*bearer\s+[A-Za-z0-9\-._~+/=]{20,}/gi,
-    // X-Signature headers with long hex strings (HMAC-like)
-    /x-?signature\s*:\s*[0-9a-f]{32,}/gi,
-    // OpenAI-style keys (sk-...)
-    /\bsk-[A-Za-z0-9]{20,}\b/g,
-    // GitHub PAT
-    /\bghp_[A-Za-z0-9]{30,}\b/g,
-    // GitLab PAT
-    /\bglpat-[A-Za-z0-9\-_]{20,}\b/g,
-    // AWS Access Key ID
-    /\bAKIA[0-9A-Z]{16}\b/g,
-    // JWT-like tokens (three base64url segments)
-    /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g,
-    // Generic long hex (signatures, hashes)
-    /\b[0-9a-f]{40,}\b/gi,
-  ];
-  let out = input;
-  for (const re of patterns) {
-    out = out.replace(re, "[REDACTED]");
-  }
-  return out;
-}
-
-function sanitizePlannerResult(
-  input: Partial<PlannerResultJson>
-): PlannerResultJson {
-  // Validate emailDraft has required fields
-  let validEmailDraft: { subject: string; body: string } | undefined;
-  if (
-    input.emailDraft &&
-    typeof input.emailDraft.subject === "string" &&
-    typeof input.emailDraft.body === "string"
-  ) {
-    validEmailDraft = input.emailDraft;
-  }
-
-  const copy: PlannerResultJson = {
-    usedTools: input.usedTools ?? [],
-    decisionLog: input.decisionLog,
-    summary: input.summary,
-    health: input.health,
-    actions: input.actions,
-    emailDraft: validEmailDraft,
-    notes: input.notes,
-    planSource: input.planSource,
-    planHint: input.planHint,
-    customerId: input.customerId,
-    task: input.task,
-    timingInfo: input.timingInfo,
-  };
-  if (copy.summary) copy.summary = redactString(copy.summary);
-  if (copy.notes) copy.notes = redactString(copy.notes);
-  if (copy.actions)
-    copy.actions = copy.actions
-      .map((a) => redactString(String(a)))
-      .filter(Boolean) as string[];
-  if (copy.emailDraft) {
-    copy.emailDraft.subject = redactString(copy.emailDraft.subject);
-    copy.emailDraft.body = redactString(copy.emailDraft.body);
-  }
-  if (copy.decisionLog && Array.isArray(copy.decisionLog)) {
-    const first = copy.decisionLog[0] as unknown;
-    if (typeof first === "string") {
-      // Convert string array to object array
-      const stringLog = copy.decisionLog as unknown as string[];
-      copy.decisionLog = stringLog.map<{
-        reason: string;
-      }>((d) => ({
-        reason: redactString(d),
-      }));
-    } else {
-      copy.decisionLog = (
-        copy.decisionLog as Array<{
-          reason: string;
-          step?: number;
-          tool?: string;
-          action?: string;
-        }>
-      ).map((d) => ({
-        ...d,
-        reason:
-          typeof d.reason === "string" ? redactString(d.reason) : d.reason,
-      }));
-    }
-  }
-  return copy;
-}
-
-function isOutOfScope(message: string): boolean {
-  const s = message.toLowerCase();
-  const csKeywords = [
-    "customer",
-    "health",
-    "renewal",
-    "qbr",
-    "ticket",
-    "contract",
-    "usage",
-    "adoption",
-    "email",
-    "churn",
-    "account",
-    "onboard",
-    "support",
-    "escalat",
-  ];
-  const hasCs = csKeywords.some((k) => s.includes(k));
-
-  // Expanded out-of-scope patterns
-  const likelyOos = [
-    "movie",
-    "actor",
-    "celebrity",
-    "lyrics",
-    "recipe",
-    "game cheat",
-    "hack",
-    "exploit",
-    "bypass",
-    "jailbreak",
-    "weather",
-    "what month",
-    "what day",
-    "what year",
-    "math problem",
-    "joke",
-    "story",
-    "poem",
-  ].some((k) => s.includes(k));
-
-  return !hasCs && likelyOos;
-}
+// Helper functions moved to src/agent/synthesizer.ts and src/agent/utils.ts

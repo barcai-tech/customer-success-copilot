@@ -342,3 +342,65 @@ export type CustomerFormData = z.infer<typeof customerFormSchema>;
 export type CustomerFormTransformed = z.infer<
   typeof customerFormSchemaTransformed
 >;
+
+// ============================================================================
+// Planner Form Schema (for copilot message input)
+// ============================================================================
+
+/**
+ * Planner form schema
+ * Validates user input for the copilot planner
+ */
+export const plannerFormSchema = z.object({
+  customerId: z
+    .string()
+    .min(1, "Customer is required")
+    .refine((val) => !hasXSSPatterns(val), {
+      message: "Customer ID contains forbidden characters",
+    }),
+  task: z.enum(["renewal", "qbr", "churn", "eval"], {
+    message: "Select a valid task type",
+  }),
+  message: z
+    .string()
+    .min(0)
+    .max(2000, "Message too long (max 2000 characters)")
+    .transform(sanitizeString)
+    .pipe(
+      z.string().refine((val) => !hasXSSPatterns(val), {
+        message: "Message contains forbidden characters",
+      })
+    ),
+});
+
+export type PlannerFormData = z.infer<typeof plannerFormSchema>;
+
+/**
+ * Eval form schema (for evaluation mode)
+ * Includes all planner fields plus eval-specific fields
+ */
+export const evalFormSchema = z.object({
+  customerId: z
+    .string()
+    .min(1, "Customer is required")
+    .refine((val) => !hasXSSPatterns(val), {
+      message: "Customer ID contains forbidden characters",
+    }),
+  expectedActions: z
+    .string()
+    .min(1, "Expected actions are required")
+    .max(2000, "Text too long (max 2000 characters)")
+    .transform(sanitizeString),
+  message: z
+    .string()
+    .min(1, "Message is required")
+    .max(2000, "Message too long (max 2000 characters)")
+    .transform(sanitizeString)
+    .pipe(
+      z.string().refine((val) => !hasXSSPatterns(val), {
+        message: "Message contains forbidden characters",
+      })
+    ),
+});
+
+export type EvalFormData = z.infer<typeof evalFormSchema>;
