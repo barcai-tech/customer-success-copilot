@@ -32,6 +32,8 @@ import {
   SelectValue,
 } from "@/src/components/ui/select";
 
+const TREND_RANK: Record<string, number> = { down: 0, flat: 1, up: 2 };
+
 export default function CustomersTable({
   initialRows,
 }: {
@@ -46,8 +48,6 @@ export default function CustomersTable({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
-
-  const trendRank: Record<string, number> = { down: 0, flat: 1, up: 2 };
 
   // Clamp page index if data size changes
   useEffect(() => {
@@ -101,8 +101,8 @@ export default function CustomersTable({
         sortingFn: (rowA, rowB, columnId) => {
           const a = (rowA.getValue(columnId) as string | null) || "";
           const b = (rowB.getValue(columnId) as string | null) || "";
-          const ra = trendRank[a] ?? -1;
-          const rb = trendRank[b] ?? -1;
+          const ra = TREND_RANK[a] ?? -1;
+          const rb = TREND_RANK[b] ?? -1;
           return ra === rb ? 0 : ra < rb ? -1 : 1;
         },
         cell: ({ getValue }) => getValue<string | null>() ?? "-",
@@ -255,7 +255,7 @@ export default function CustomersTable({
               value={String(pageSize)}
               onValueChange={(v) => table.setPageSize(Number(v))}
             >
-              <SelectTrigger className="h-8 w-[80px]">
+              <SelectTrigger className="h-8 w-20">
                 <SelectValue placeholder={String(pageSize)} />
               </SelectTrigger>
               <SelectContent>

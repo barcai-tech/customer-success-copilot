@@ -14,15 +14,24 @@ import { callLLM, type LlmMessage } from "@/src/llm/provider";
 import type {
   ExecutionPlanStep,
   ToolDataMap,
-  ToolSchemaMap,
   ToolExecutionRecord,
   SendEventFn,
   PhaseCompleteEventData,
+  ToolResult,
+  ToolSchemaMap,
 } from "./types";
 import { TOOL_SCHEMAS } from "./types";
 import { logger } from "@/src/lib/logger";
 import { redactString } from "./synthesizer";
-import type { PlannerResultJson } from "@/src/contracts/planner";
+import type { z } from "zod";
+
+const TOOL_SCHEMA_MAP: ToolSchemaMap = TOOL_SCHEMAS;
+
+function getToolSchema<T extends ToolName>(
+  name: T
+): z.ZodType<ToolResult<T>> {
+  return TOOL_SCHEMA_MAP[name] as z.ZodType<ToolResult<T>>;
+}
 
 /**
  * Execute a plan by invoking tools in parallel rounds
@@ -83,8 +92,30 @@ export async function executePlan(
         // Execute all tools in this round in parallel
         await Promise.all(
           resp.assistant.tool_calls.map(async (tc) => {
+            const rawName = tc.function.name;
+            if (!isToolName(rawName)) {
+              logger.warn("[Unknown tool call]", { tool: rawName });
+              usedTools.push({
+                name: rawName,
+                error: "UNKNOWN_TOOL",
+              });
+              messages.push({
+                role: "tool",
+                tool_call_id: tc.id,
+                content: JSON.stringify({
+                  ok: false,
+                  data: null,
+                  error: {
+                    code: "UNKNOWN_TOOL",
+                    message: `Unhandled tool ${rawName}`,
+                  },
+                }),
+              });
+              return;
+            }
             await executeToolCall(
               tc,
+              rawName,
               customerId,
               ownerUserId,
               cache,
@@ -140,11 +171,12 @@ export async function executePlan(
 /**
  * Execute a single tool call
  */
-async function executeToolCall(
+async function executeToolCall<TName extends ToolName>(
   tc: {
     id: string;
     function: { name: string; arguments?: string };
   },
+  name: TName,
   customerId: string,
   ownerUserId: string,
   cache: Partial<ToolDataMap>,
@@ -152,8 +184,6 @@ async function executeToolCall(
   usedTools: ToolExecutionRecord[],
   send: SendEventFn
 ): Promise<void> {
-  const name = tc.function.name as ToolName;
-
   const endRecord: ToolExecutionRecord & { missing?: boolean } = { name };
 
   try {
@@ -174,14 +204,16 @@ async function executeToolCall(
     const params = { ...(args.params || {}), ownerUserId };
 
     // Invoke tool
-    let envelope:
-      | ResponseEnvelope<unknown>
-      | { ok: false; data: null; error: { code: string; message: string } };
+    let envelope: ResponseEnvelope<ToolResult<TName>>;
 
     try {
-      const schema = TOOL_SCHEMAS[name];
+      const schema = getToolSchema(name);
       const t0 = performance.now();
-      const res = await invokeTool(name, { customerId: cid, params }, schema);
+      const res = await invokeTool<ToolResult<TName>>(
+        name,
+        { customerId: cid, params },
+        schema
+      );
       const t1 = performance.now();
 
       endRecord.tookMs = Math.round(t1 - t0);
@@ -198,24 +230,27 @@ async function executeToolCall(
         cacheToolResult(name, res, cache);
 
         // Check for missing data
-        try {
-          const d = (res as EnvelopeSuccess<Record<string, unknown>>).data as
-            | Record<string, unknown>
-            | undefined;
-          if (d && (d as any).missingData) {
-            endRecord.missing = true;
-          }
-        } catch {}
+        const data = res.data;
+        if (
+          data &&
+          typeof data === "object" &&
+          "missingData" in data &&
+          (data as { missingData?: unknown }).missingData === true
+        ) {
+          endRecord.missing = true;
+        }
 
         // Send patches for immediate UI updates
-        if (name === "calculate_health")
+        if (name === "calculate_health" && cache.calculate_health) {
           send("patch", { health: cache.calculate_health });
-        if (name === "generate_email")
+        }
+        if (name === "generate_email" && cache.generate_email) {
           send("patch", { emailDraft: cache.generate_email });
-        if (name === "generate_qbr_outline")
-          send("patch", {
-            actions: (cache.generate_qbr_outline as any)?.sections || [],
-          });
+        }
+        if (name === "generate_qbr_outline") {
+          const sections = cache.generate_qbr_outline?.sections ?? [];
+          send("patch", { actions: sections });
+        }
       } else {
         endRecord.error = res.error?.code || "ERROR";
         usedTools.push({ name, error: endRecord.error });
@@ -228,7 +263,8 @@ async function executeToolCall(
 
       envelope = res;
     } catch (e) {
-      endRecord.error = (e as Error).message;
+      const error = e instanceof Error ? e : new Error(String(e));
+      endRecord.error = error.message;
       usedTools.push({ name, error: endRecord.error });
       send("tool:complete", {
         name,
@@ -238,7 +274,7 @@ async function executeToolCall(
       envelope = {
         ok: false,
         data: null,
-        error: { code: "EXCEPTION", message: (e as Error).message },
+        error: { code: "EXCEPTION", message: error.message },
       };
     }
 
@@ -249,12 +285,11 @@ async function executeToolCall(
       content: JSON.stringify(envelope),
     });
   } catch (outerError) {
-    const safeName = isSafeToolName(name) ? name : "unknown";
-    logger.error("[Tool outer error]", { tool: safeName, error: outerError });
+    const message =
+      outerError instanceof Error ? outerError.message : String(outerError);
+    logger.error("[Tool outer error]", { tool: name, error: message });
 
-    endRecord.error = redactString(
-      (outerError as Error).message || "UNKNOWN_ERROR"
-    );
+    endRecord.error = redactString(message || "UNKNOWN_ERROR");
     usedTools.push({ name, error: endRecord.error });
 
     // Still push a message to maintain consistency
@@ -274,9 +309,8 @@ async function executeToolCall(
     try {
       send("tool:end", endRecord);
     } catch (sendError) {
-      const safeName = isSafeToolName(name) ? name : "unknown";
       logger.error("[Failed to send tool:end]", {
-        tool: safeName,
+        tool: name,
         error: sendError,
       });
     }
@@ -286,37 +320,44 @@ async function executeToolCall(
 /**
  * Cache tool result in the cache object
  */
-function cacheToolResult(
-  name: ToolName,
-  res: EnvelopeSuccess<unknown>,
+const toolCacheUpdaters: {
+  [K in ToolName]: (
+    cache: Partial<ToolDataMap>,
+    data: ToolResult<K>
+  ) => void;
+} = {
+  get_customer_usage: (cache, data) => {
+    cache.get_customer_usage = data;
+  },
+  get_recent_tickets: (cache, data) => {
+    cache.get_recent_tickets = data;
+  },
+  get_contract_info: (cache, data) => {
+    cache.get_contract_info = data;
+  },
+  calculate_health: (cache, data) => {
+    cache.calculate_health = data;
+  },
+  generate_email: (cache, data) => {
+    cache.generate_email = data;
+  },
+  generate_qbr_outline: (cache, data) => {
+    cache.generate_qbr_outline = data;
+  },
+};
+
+function cacheToolResult<T extends ToolName>(
+  name: T,
+  res: EnvelopeSuccess<ToolResult<T>>,
   cache: Partial<ToolDataMap>
 ): void {
-  switch (name) {
-    case "get_customer_usage":
-      cache.get_customer_usage = res.data as any;
-      break;
-    case "get_recent_tickets":
-      cache.get_recent_tickets = res.data as any;
-      break;
-    case "get_contract_info":
-      cache.get_contract_info = res.data as any;
-      break;
-    case "calculate_health":
-      cache.calculate_health = res.data as any;
-      break;
-    case "generate_email":
-      cache.generate_email = res.data as any;
-      break;
-    case "generate_qbr_outline":
-      cache.generate_qbr_outline = res.data as any;
-      break;
-  }
+  toolCacheUpdaters[name](cache, res.data);
 }
 
 /**
  * Check if tool name is safe to log
  */
-function isSafeToolName(name: string): name is ToolName {
+function isToolName(name: string): name is ToolName {
   return [
     "get_customer_usage",
     "get_recent_tickets",

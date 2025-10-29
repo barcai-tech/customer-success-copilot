@@ -8,13 +8,6 @@ import type { ExecutionStep } from "@/src/store/eval-detail-store";
 import { logger } from "@/src/lib/logger";
 
 /**
- * Calculate timedOut count from results
- */
-function calculateTimedOut(results: EvalSession["results"]): number {
-  return results.filter((r) => r.status === "timeout").length;
-}
-
-/**
  * Save an evaluation session to the database
  */
 export async function saveEvalSession(session: EvalSession) {
@@ -102,7 +95,7 @@ export async function saveExecutionSteps(
     const step = steps[i];
     try {
       await db.insert(execSteps).values({
-        resultId: resultId as any, // resultId from DB is a UUID string
+        resultId,
         title: step.title,
         description: step.description,
         level: step.level,

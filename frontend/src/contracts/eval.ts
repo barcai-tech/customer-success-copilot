@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { PlannerResult } from "@/src/agent/planner";
 
 // Quick action types
 export const QuickActionType = z.enum([

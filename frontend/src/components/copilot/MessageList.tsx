@@ -62,41 +62,68 @@ export function MessageList({
 
   // Group messages into tasks before any early return to keep hooks order stable
   const tasks = useMemo(() => {
-    const result: Array<{
+    type Thread = {
       id: string;
       user?: (typeof messages)[number];
       assistant?: (typeof messages)[number];
-    }> = [];
-    const byId = new Map<string, (typeof result)[number]>();
-    let lastOpen: (typeof result)[number] | null = null;
-    for (const m of messages) {
-      if (m.role === "user") {
-        const key = m.taskId || m.id;
-        let t = byId.get(key);
-        if (!t) {
-          t = { id: key };
-          byId.set(key, t);
-          result.push(t);
+    };
+    const result: Thread[] = [];
+    const indexById = new Map<string, number>();
+    let lastOpenIndex: number | null = null;
+
+    const upsert = (id: string, next: (current?: Thread) => Thread) => {
+      const existingIndex = indexById.get(id);
+      if (existingIndex === undefined) {
+        const created = next();
+        indexById.set(id, result.length);
+        result.push(created);
+        return result.length - 1;
+      }
+      const updated = next(result[existingIndex]);
+      result[existingIndex] = updated;
+      return existingIndex;
+    };
+
+    for (const message of messages) {
+      if (message.role === "user") {
+        const key = message.taskId || message.id;
+        const idx = upsert(key, (current) => ({
+          id: key,
+          assistant: current?.assistant,
+          user: message,
+        }));
+        lastOpenIndex = idx;
+        continue;
+      }
+
+      if (message.role === "assistant") {
+        const taskKey = message.taskId || "";
+        let idx = taskKey !== "" ? indexById.get(taskKey) : undefined;
+        if (idx === undefined && lastOpenIndex !== null) {
+          const candidate = result[lastOpenIndex];
+          if (!candidate.assistant) {
+            idx = lastOpenIndex;
+          }
         }
-        t.user = m;
-        lastOpen = t;
-      } else if (m.role === "assistant") {
-        const key = m.taskId || "";
-        let t = (key && byId.get(key)) || null;
-        if (!t && lastOpen && !lastOpen.assistant) {
-          // Pair legacy assistant with previous user if no taskId
-          t = lastOpen;
+        if (idx === undefined) {
+          const fallbackKey = taskKey || message.id;
+          idx = upsert(fallbackKey, (current) => ({
+            id: fallbackKey,
+            user: current?.user,
+            assistant: message,
+          }));
+          if (taskKey) {
+            indexById.set(taskKey, idx);
+          }
+        } else {
+          // Instead of mutating, create a new object
+          const existing = result[idx];
+          result[idx] = { ...existing, assistant: message };
         }
-        if (!t) {
-          const fallbackKey = key || m.id;
-          t = { id: fallbackKey };
-          byId.set(fallbackKey, t);
-          result.push(t);
-        }
-        t.assistant = m;
-        lastOpen = null;
+        lastOpenIndex = null;
       }
     }
+
     return result;
   }, [messages]);
 
@@ -116,7 +143,8 @@ export function MessageList({
       const hasAssistant =
         !!task.assistant ||
         messages.some(
-          (m) => m.role === "assistant" && (m.taskId === task.id || m.id === task.id)
+          (m) =>
+            m.role === "assistant" && (m.taskId === task.id || m.id === task.id)
         );
       if (hasAssistant && !autoExpandedRef.current.has(task.id)) {
         autoExpandedRef.current.add(task.id);
@@ -131,7 +159,14 @@ export function MessageList({
         setExpanded((prev) => new Set([...prev, task.id]));
       }
     });
-  }, [assistantStatusKey, tasks, status, activeAssistantId, expanded, messages]);
+  }, [
+    assistantStatusKey,
+    tasks,
+    status,
+    activeAssistantId,
+    expanded,
+    messages,
+  ]);
 
   if (messages.length === 0) {
     return (
@@ -178,12 +213,12 @@ export function MessageList({
                 </div>
 
                 {/* Chevron trigger */}
-                {((task.assistant ||
+                {(task.assistant ||
                   messages.some(
                     (m) =>
                       m.role === "assistant" &&
                       (m.taskId === task.id || m.id === task.id)
-                  )) ||
+                  ) ||
                   (status === "running" && activeAssistantId === task.id)) && (
                   <CollapsibleTrigger asChild>
                     <button
@@ -229,14 +264,19 @@ export function MessageList({
                       <AlertDialogHeader>
                         <AlertDialogTitle>Delete this task?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will hide both the question and the reply from the Copilot view. The data remains in the database for troubleshooting.
+                          This will hide both the question and the reply from
+                          the Copilot view. The data remains in the database for
+                          troubleshooting.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={async () =>
-                            onHide?.({ id: task.id, assistantId: task.assistant?.id })
+                            onHide?.({
+                              id: task.id,
+                              assistantId: task.assistant?.id,
+                            })
                           }
                         >
                           Delete

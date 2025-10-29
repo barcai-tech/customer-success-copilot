@@ -23,8 +23,11 @@ import {
   upsertTicketsSchema,
   upsertUsageSchema,
 } from "@/src/lib/validation";
+import type { CustomerRow } from "@/src/store/customer-store";
 
-export async function listCustomersForUser() {
+type ContractInsert = typeof contracts.$inferInsert;
+
+export async function listCustomersForUser(): Promise<CustomerRow[]> {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const rows = await db
@@ -58,10 +61,20 @@ export async function listCustomersForUser() {
       )
     )
     .where(eq(companies.ownerUserId, userId));
-  // If duplicates slipped in previously, coalesce by id
-  const map = new Map<string, (typeof rows)[number]>();
-  for (const r of rows) if (!map.has(r.id)) map.set(r.id, r);
-  return Array.from(map.values());
+  const seen = new Set<string>();
+  const deduped: CustomerRow[] = [];
+  for (const row of rows) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    deduped.push({
+      id: row.id,
+      name: row.name,
+      trend: row.trend,
+      openTickets: row.openTickets,
+      renewalDate: row.renewalDate,
+    });
+  }
+  return deduped;
 }
 
 export async function getCustomerDetails(externalId: string) {
@@ -199,14 +212,13 @@ export async function createCustomerAction(input: {
 
       inserted = true;
       break;
-    } catch (error: any) {
-      finalError = error;
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      finalError = err;
+      const message = err.message ?? "";
       // Only retry on duplicate key errors
-      if (
-        !error.message?.includes("duplicate key") &&
-        !error.message?.includes("unique")
-      ) {
-        throw error;
+      if (!message.includes("duplicate key") && !message.includes("unique")) {
+        throw err;
       }
       // If this is the last attempt, prepare final error message
       if (attempt === 4) {
@@ -361,7 +373,8 @@ export async function updateCustomerAction(input: {
     typeof input.arr === "number"
   ) {
     let renewalDate: Date | undefined;
-    const updateValues: Record<string, any> = {};
+    const updateValues: Partial<Pick<ContractInsert, "renewalDate" | "arr">> =
+      {};
 
     if (typeof input.renewalDate === "string" && input.renewalDate) {
       // Parse the date string to a Date object
@@ -387,7 +400,7 @@ export async function updateCustomerAction(input: {
         })
         .onConflictDoUpdate({
           target: [contracts.ownerUserId, contracts.companyExternalId],
-          set: updateValues as any,
+          set: updateValues,
         });
     }
   }

@@ -14,14 +14,43 @@ import { toast } from "sonner";
 import { Info } from "lucide-react";
 import { SignedOut } from "@clerk/nextjs";
 import { useAuth } from "@clerk/nextjs";
+import type { PlannerResult } from "@/src/agent/planner";
+import { sanitizePlannerResult } from "@/src/agent/synthesizer";
+import type { PlannerResultJson } from "@/src/contracts/planner";
 
-type ServerAction<TArgs extends any[], TResult> = (...args: TArgs) => Promise<TResult>;
+type ServerAction<TArgs extends readonly unknown[], TResult> = (
+  ...args: TArgs
+) => Promise<TResult>;
+
+type SaveMessageArgs = {
+  companyExternalId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  resultJson?: unknown;
+  taskId?: string;
+};
+
+type StoredMessage = {
+  id: string;
+  companyExternalId: string;
+  ownerUserId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  resultJson: unknown | null;
+  taskId: string | null;
+  createdAt: string | Date;
+  hidden: boolean;
+};
+
+type ListMessagesArgs = { companyExternalId: string; limit?: number };
+type HideTaskArgs = { companyExternalId: string; taskId: string };
+type HideTaskResult = { ok: true };
 
 interface CopilotDashboardProps {
   actions: {
-    saveMessage: ServerAction<[{ companyExternalId: string; role: "user" | "assistant" | "system"; content: string; resultJson?: unknown }], any>;
-    listMessagesForCustomer: ServerAction<[{ companyExternalId: string; limit?: number }], Array<any>>;
-    hideTask: ServerAction<[{ companyExternalId: string; taskId: string }], { ok: true }>;
+    saveMessage: ServerAction<[SaveMessageArgs], StoredMessage>;
+    listMessagesForCustomer: ServerAction<[ListMessagesArgs], StoredMessage[]>;
+    hideTask: ServerAction<[HideTaskArgs], HideTaskResult>;
   };
 }
 
@@ -46,8 +75,11 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
   const handleSubmit = useCallback(
     async (message: string, customerIdOverride?: string) => {
       // Add user message
-      const taskId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
-        ? (crypto as any).randomUUID()
+      const supportsRandomUuid =
+        typeof crypto !== "undefined" &&
+        typeof crypto.randomUUID === "function";
+      const taskId = supportsRandomUuid
+        ? crypto.randomUUID()
         : Math.random().toString(36).substring(2);
       addMessage({
         role: "user",
@@ -59,7 +91,8 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         try {
           useCopilotStore.getState().cancelStream();
         } catch {}
-        const companyId = customerIdOverride || useCopilotStore.getState().selectedCustomer?.id;
+        const companyId =
+          customerIdOverride || useCopilotStore.getState().selectedCustomer?.id;
         if (companyId) {
           await actions.saveMessage({
             companyExternalId: companyId,
@@ -76,7 +109,8 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
       try {
         // Prefer streaming endpoint for progressive updates
         const params = new URLSearchParams({ message });
-        const companyId2 = customerIdOverride || useCopilotStore.getState().selectedCustomer?.id;
+        const companyId2 =
+          customerIdOverride || useCopilotStore.getState().selectedCustomer?.id;
         if (companyId2) params.set("selectedCustomerId", companyId2);
 
         // Start a placeholder assistant message to stream into
@@ -104,19 +138,25 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
           `/api/copilot/stream?${params.toString()}`
         );
         useCopilotStore.getState().setStream(source);
-        source.addEventListener("plan", (ev) => {
+        source.addEventListener("plan", (ev: MessageEvent) => {
           try {
-            const data = JSON.parse((ev as MessageEvent).data);
+            const data = JSON.parse(ev.data) as Partial<PlannerResult> &
+              Record<string, unknown>;
+            const rawPlanSource = data.planSource;
+            const planSource =
+              rawPlanSource === "llm" || rawPlanSource === "heuristic"
+                ? rawPlanSource
+                : undefined;
             useCopilotStore.getState().patchActiveAssistantResult({
-              planSource: data.planSource,
-              customerId: data.customerId,
-              task: data.task,
+              planSource,
+              customerId: data.customerId as string | undefined,
+              task: data.task as PlannerResult["task"],
               decisionLog: data.decisionLog,
-              planSummary: data.planSummary, // Show the plan to the user
+              planSummary: data.planSummary as string | undefined, // Show the plan to the user
               usedTools: [],
             });
             // Show plan summary as a toast notification
-            if (data.planSummary) {
+            if (typeof data.planSummary === "string") {
               toast("Plan created", { description: data.planSummary });
             }
           } catch {}
@@ -176,38 +216,45 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
           try {
             const data = JSON.parse(ev.data) as {
               name: string;
-              tookMs: number;
+              tookMs?: number;
               status?: string;
             };
             const level = data.status === "error" ? "error" : "success";
-            addLog(`${data.name} (${formatDuration(data.tookMs)})`, level);
+            const tookMs = typeof data.tookMs === "number" ? data.tookMs : 0;
+            addLog(`${data.name} (${formatDuration(tookMs)})`, level);
           } catch {}
         });
         source.addEventListener("patch", (ev: MessageEvent) => {
           try {
-            const data = JSON.parse(ev.data) as Record<string, unknown>;
+            const data = JSON.parse(ev.data) as Partial<PlannerResult>;
             useCopilotStore.getState().patchActiveAssistantResult(data);
           } catch {}
         });
-        source.addEventListener("final", async (ev) => {
+        source.addEventListener("final", async (ev: MessageEvent) => {
           try {
-            const data = JSON.parse((ev as MessageEvent).data);
-            if (data.planSource === "heuristic" && data.planHint) {
+            const data = JSON.parse(ev.data) as PlannerResult &
+              Record<string, unknown>;
+            if (
+              data.planSource === "heuristic" &&
+              typeof data.planHint === "string"
+            ) {
               toast("LLM planner fallback", { description: data.planHint });
             }
             useCopilotStore
               .getState()
               .finalizeActiveAssistant(
                 data,
-                data.summary || "Here are the results:"
+                (data.summary as string | undefined) || "Here are the results:"
               );
             // Persist assistant message with final result
-            const companyId3 = customerIdOverride || useCopilotStore.getState().selectedCustomer?.id;
+            const companyId3 =
+              customerIdOverride ||
+              useCopilotStore.getState().selectedCustomer?.id;
             if (companyId3) {
               await actions.saveMessage({
                 companyExternalId: companyId3,
                 role: "assistant",
-                content: data.summary || "",
+                content: (data.summary as string | undefined) || "",
                 resultJson: data,
                 taskId,
               });
@@ -247,7 +294,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         setError(errorMessage);
       }
     },
-    [actions, addMessage, setStatus, setError, selectedCustomer?.id]
+    [actions, addMessage, setStatus, setError]
   );
 
   // Load persisted messages when customer changes
@@ -259,14 +306,49 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
           companyExternalId: selectedCustomer.id,
           limit: 200,
         });
-        const mapped = rows.map((r: any) => ({
-          id: r.id,
-          role: r.role,
-          content: r.content,
-          timestamp: new Date(r.createdAt),
-          taskId: r.taskId ?? r.task_id ?? undefined,
-          result: r.resultJson ?? undefined,
-        }));
+        const mapped = rows.map((row) => {
+          let plannerResult: PlannerResult | undefined;
+          const rawResult = row.resultJson;
+          if (rawResult && typeof rawResult === "object") {
+            try {
+              const sanitized = sanitizePlannerResult(
+                rawResult as Partial<PlannerResultJson>
+              );
+              plannerResult = {
+                summary: sanitized.summary,
+                health: sanitized.health,
+                actions: sanitized.actions,
+                emailDraft: sanitized.emailDraft,
+                usedTools: sanitized.usedTools ?? [],
+                notes: sanitized.notes,
+                decisionLog: sanitized.decisionLog,
+                planSource: sanitized.planSource,
+                planHint: sanitized.planHint,
+                customerId: sanitized.customerId,
+                task: sanitized.task as PlannerResult["task"],
+              };
+            } catch {}
+          }
+          const maybeLegacyTaskId = (row as Record<string, unknown>)["task_id"];
+          const normalizedTaskId =
+            typeof row.taskId === "string"
+              ? row.taskId
+              : typeof maybeLegacyTaskId === "string"
+              ? maybeLegacyTaskId
+              : undefined;
+          const createdAt =
+            row.createdAt instanceof Date
+              ? row.createdAt
+              : new Date(row.createdAt);
+          return {
+            id: row.id,
+            role: row.role,
+            content: row.content,
+            timestamp: createdAt,
+            taskId: normalizedTaskId,
+            result: plannerResult,
+          };
+        });
         // Avoid overriding in-flight UI messages (e.g., just-sent prompt)
         const current = useCopilotStore.getState().messages;
         if (current.length === 0) setMessages(mapped);
@@ -411,25 +493,35 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
             <>
               {/* Messages - Independent scroll container */}
               <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 lg:px-8">
-        <MessageList
-          onHide={async ({ id: taskId, assistantId }) => {
-            try {
-              if (!selectedCustomer?.id) return;
-              await actions.hideTask({ companyExternalId: selectedCustomer.id, taskId });
-              if (assistantId && assistantId !== taskId) {
-                // Hide legacy assistant message without taskId
-                const { hideMessage } = await import("@/app/db-actions");
-                await hideMessage({ id: assistantId });
-              }
-              // Remove all messages for this task from the store
-              setMessages(
-                useCopilotStore
-                  .getState()
-                  .messages.filter((m) => m.taskId !== taskId && m.id !== taskId && m.id !== assistantId)
-              );
-            } catch {}
-          }}
-        />
+                <MessageList
+                  onHide={async ({ id: taskId, assistantId }) => {
+                    try {
+                      if (!selectedCustomer?.id) return;
+                      await actions.hideTask({
+                        companyExternalId: selectedCustomer.id,
+                        taskId,
+                      });
+                      if (assistantId && assistantId !== taskId) {
+                        // Hide legacy assistant message without taskId
+                        const { hideMessage } = await import(
+                          "@/app/db-actions"
+                        );
+                        await hideMessage({ id: assistantId });
+                      }
+                      // Remove all messages for this task from the store
+                      setMessages(
+                        useCopilotStore
+                          .getState()
+                          .messages.filter(
+                            (m) =>
+                              m.taskId !== taskId &&
+                              m.id !== taskId &&
+                              m.id !== assistantId
+                          )
+                      );
+                    } catch {}
+                  }}
+                />
               </div>
 
               {/* Input - Fixed at bottom */}

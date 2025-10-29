@@ -101,7 +101,7 @@ export const TASKS: Record<
   },
 };
 
-export const useCopilotStore = create<CopilotState>((set, _get) => ({
+export const useCopilotStore = create<CopilotState>((set) => ({
   // Initial state
   selectedCustomer: null,
   selectedTask: null,

@@ -14,15 +14,16 @@ import { ActionSelector } from "./ActionSelector";
 import { ResultsDisplay } from "./ResultsDisplay";
 import { EvalLogs } from "./EvalLogs";
 import { logger } from "@/src/lib/logger";
+import type { ClerkUser, CustomerRow } from "@/app/eval/actions";
 
-type ServerAction<TArgs extends any[], TResult> = (
+type ServerAction<TArgs extends unknown[], TResult> = (
   ...args: TArgs
 ) => Promise<TResult>;
 
 interface EvalDashboardProps {
   actions: {
-    listAllUsers: ServerAction<[], any[]>;
-    getCustomersForUser: ServerAction<[string], any[]>;
+    listAllUsers: ServerAction<[], ClerkUser[]>;
+    getCustomersForUser: ServerAction<[string], CustomerRow[]>;
   };
 }
 
@@ -122,9 +123,11 @@ export function EvalDashboard({ actions }: EvalDashboardProps) {
       toast.success(
         `Eval complete: ${result.summary.passed}/${result.summary.total} passed`
       );
-    } catch (e) {
-      toast.error((e as Error).message);
-      logger.error(e);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Failed to run evaluation";
+      toast.error(message);
+      logger.error(error);
     } finally {
       setRunning(false);
     }

@@ -29,13 +29,9 @@ function isEnabled(): boolean {
 function log(level: Level, ...args: unknown[]) {
   if (!isEnabled()) return;
   const prefix = "[app]";
-  // eslint-disable-next-line no-console
   if (level === "debug") console.debug(prefix, ...args);
-  // eslint-disable-next-line no-console
   else if (level === "info") console.info(prefix, ...args);
-  // eslint-disable-next-line no-console
   else if (level === "warn") console.warn(prefix, ...args);
-  // eslint-disable-next-line no-console
   else console.error(prefix, ...args);
 }
 
@@ -46,4 +42,3 @@ export const logger = {
   error: (...args: unknown[]) => log("error", ...args),
   enabled: isEnabled,
 };
-

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { StateCreator } from "zustand";
 import { devtools } from "zustand/middleware";
 import type { ClerkUser, CustomerRow } from "@/app/eval/actions";
 import type { EvalSession, QuickActionType } from "@/src/contracts/eval";
@@ -60,39 +61,38 @@ const initialState = {
   selectedRunId: null,
 };
 
-const withDevtools = <T extends object>(initializer: any, name: string) =>
-  process.env.NODE_ENV !== "production" ? devtools(initializer, { name }) : initializer;
-
 export const useEvalStore = create<EvalState>()(
-  withDevtools(
-    (set: any) => ({
+  devtools(
+    (set) => ({
       ...initialState,
-
-      setUsers: (users) => set({ users }),
-      setUsersLoading: (loading) => set({ usersLoading: loading }),
-      setAvailableCustomers: (customers) =>
-        set({ availableCustomers: customers }),
-      setCustomersLoading: (loading) => set({ customersLoading: loading }),
-      setSelectedUserId: (userId) =>
-        set({ selectedUserId: userId, selectedCustomers: [] }),
-      setSelectedCustomers: (customers) =>
-        set({ selectedCustomers: customers }),
-      toggleCustomer: (customerId) =>
+      setUsers: (users: ClerkUser[]) => set(() => ({ users })),
+      setUsersLoading: (loading: boolean) =>
+        set(() => ({ usersLoading: loading })),
+      setAvailableCustomers: (customers: CustomerRow[]) =>
+        set(() => ({ availableCustomers: customers })),
+      setCustomersLoading: (loading: boolean) =>
+        set(() => ({ customersLoading: loading })),
+      setSelectedUserId: (userId: string) =>
+        set(() => ({ selectedUserId: userId, selectedCustomers: [] })),
+      setSelectedCustomers: (customers: string[]) =>
+        set(() => ({ selectedCustomers: customers })),
+      toggleCustomer: (customerId: string) =>
         set((state) => ({
           selectedCustomers: state.selectedCustomers.includes(customerId)
             ? state.selectedCustomers.filter((id) => id !== customerId)
             : [...state.selectedCustomers, customerId],
         })),
-      setSelectedActions: (actions) => set({ selectedActions: actions }),
-      toggleAction: (action) =>
+      setSelectedActions: (actions: QuickActionType[]) =>
+        set(() => ({ selectedActions: actions })),
+      toggleAction: (action: QuickActionType) =>
         set((state) => ({
           selectedActions: state.selectedActions.includes(action)
             ? state.selectedActions.filter((a) => a !== action)
             : [...state.selectedActions, action],
         })),
-      setRunning: (running) => set({ running }),
-      setSession: (session) => set({ session }),
-      addSessionRun: (session) =>
+      setRunning: (running: boolean) => set(() => ({ running })),
+      setSession: (session: EvalSession | null) => set(() => ({ session })),
+      addSessionRun: (session: EvalSession) =>
         set((state) => {
           const runId = `run-${Date.now()}`;
           const timestamp = new Date();
@@ -109,7 +109,7 @@ export const useEvalStore = create<EvalState>()(
             session,
           };
         }),
-      selectRun: (runId) =>
+      selectRun: (runId: string) =>
         set((state) => {
           const run = state.sessionRuns.find((r) => r.id === runId);
           if (run) {
@@ -121,9 +121,9 @@ export const useEvalStore = create<EvalState>()(
           return state;
         }),
       clearSessionRuns: () =>
-        set({ sessionRuns: [], selectedRunId: null, session: null }),
-      reset: () => set(initialState),
+        set(() => ({ sessionRuns: [], selectedRunId: null, session: null })),
+      reset: () => set(() => initialState),
     }),
-    "EvalStore"
+    { name: "EvalStore" }
   )
 );

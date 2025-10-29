@@ -3,10 +3,27 @@
 import { Building2, Check } from "lucide-react";
 import { useEffect } from "react";
 import { useCopilotStore } from "@/src/store/copilot-store";
+import type { Customer } from "@/src/store/copilot-store";
 import { cn } from "@/src/lib/utils";
 
+type ViewerCustomer = {
+  id: string;
+  name: string;
+  logo?: string | null;
+};
+
+function isViewerCustomer(value: unknown): value is ViewerCustomer {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { id?: unknown }).id === "string" &&
+    typeof (value as { name?: unknown }).name === "string"
+  );
+}
+
 export function CustomerSelector() {
-  const { selectedCustomer, setCustomer, status, customers, setCustomers } = useCopilotStore();
+  const { selectedCustomer, setCustomer, status, customers, setCustomers } =
+    useCopilotStore();
   const isDisabled = status === "running";
 
   useEffect(() => {
@@ -15,11 +32,22 @@ export function CustomerSelector() {
       try {
         const { listCompaniesForViewer } = await import("@/app/actions");
         const list = await listCompaniesForViewer();
-        if (!ignore && Array.isArray(list)) setCustomers(list as any);
+        if (!ignore && Array.isArray(list)) {
+          const normalized: Customer[] = list
+            .filter(isViewerCustomer)
+            .map((entry) => ({
+              id: entry.id,
+              name: entry.name,
+              logo: entry.logo === null ? undefined : entry.logo,
+            }));
+          setCustomers(normalized);
+        }
       } catch {}
     };
     load();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [setCustomers]);
 
   return (

@@ -1,17 +1,19 @@
 "use client";
+import { useEffect } from "react";
 import { ThemeProvider } from "next-themes";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  // Suppress Clerk development keys warning in console
-  if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  // Suppress Clerk development-key warnings in development
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
     const originalWarn = console.warn;
     const originalError = console.error;
 
-    // Suppress specific development warnings
-    console.warn = (...args: any[]) => {
-      const message = args[0]?.toString?.() || "";
+    const filteredWarn = (...args: Parameters<typeof originalWarn>) => {
+      const message = args[0]?.toString?.() ?? "";
       if (
         message.includes("development keys") ||
         message.includes("strict usage limits")
@@ -21,15 +23,22 @@ export default function Providers({ children }: { children: React.ReactNode }) {
       originalWarn(...args);
     };
 
-    console.error = (...args: any[]) => {
-      const message = args[0]?.toString?.() || "";
-      // Allow hydration warnings to still show, but suppress Clerk-specific noise
+    const filteredError = (...args: Parameters<typeof originalError>) => {
+      const message = args[0]?.toString?.() ?? "";
       if (message.includes("development keys")) {
         return;
       }
       originalError(...args);
     };
-  }
+
+    console.warn = filteredWarn;
+    console.error = filteredError;
+
+    return () => {
+      console.warn = originalWarn;
+      console.error = originalError;
+    };
+  }, []);
 
   return (
     <ClerkProvider
