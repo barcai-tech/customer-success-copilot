@@ -19,6 +19,8 @@ import {
   type EvalResult,
   type QuickActionType,
 } from "@/src/contracts/eval";
+import { requireEvalAccess } from "@/src/lib/authz";
+import { logger } from "@/src/lib/logger";
 
 // ============================================================================
 // Validation Schemas
@@ -52,6 +54,7 @@ export type CustomerRow = z.infer<typeof CustomerRowSchema>;
  */
 export async function listAllUsers(): Promise<ClerkUser[]> {
   try {
+    await requireEvalAccess();
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
@@ -71,7 +74,7 @@ export async function listAllUsers(): Promise<ClerkUser[]> {
 
     return z.array(ClerkUserSchema).parse(formattedUsers);
   } catch (error) {
-    console.error("Error fetching users:", error);
+    logger.error("Error fetching users:", error);
     throw new Error("Failed to fetch users");
   }
 }
@@ -83,6 +86,7 @@ export async function getCustomersForUser(
   targetUserId: string
 ): Promise<CustomerRow[]> {
   try {
+    await requireEvalAccess();
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
@@ -129,7 +133,7 @@ export async function getCustomersForUser(
 
     return z.array(CustomerRowSchema).parse(Array.from(map.values()));
   } catch (error) {
-    console.error("Error fetching customers:", error);
+    logger.error("Error fetching customers:", error);
     throw new Error("Failed to fetch customers");
   }
 }
@@ -143,6 +147,7 @@ export async function getCustomersForUser(
  */
 export async function runEvaluation(input: unknown): Promise<EvalSession> {
   try {
+    await requireEvalAccess();
     const { userId } = await auth();
     if (!userId) throw new Error("Unauthorized");
 
@@ -327,7 +332,7 @@ export async function runEvaluation(input: unknown): Promise<EvalSession> {
     // Validate output
     return EvalSessionSchema.parse(session);
   } catch (error) {
-    console.error("Error running evaluation:", error);
+    logger.error("Error running evaluation:", error);
     if (error instanceof z.ZodError) {
       throw new Error(`Validation error: ${error.message}`);
     }
@@ -396,13 +401,13 @@ async function parseStreamResponse(
           try {
             finalResult = JSON.parse(line.slice(6));
           } catch (e) {
-            console.error("Failed to parse final result:", e);
+            logger.error("Failed to parse final result:", e);
           }
         }
       }
     }
   } catch (e) {
-    console.error("Error reading stream:", e);
+    logger.error("Error reading stream:", e);
   }
 
   return finalResult;

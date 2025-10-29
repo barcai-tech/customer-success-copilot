@@ -60,9 +60,12 @@ const initialState = {
   selectedRunId: null,
 };
 
+const withDevtools = <T extends object>(initializer: any, name: string) =>
+  process.env.NODE_ENV !== "production" ? devtools(initializer, { name }) : initializer;
+
 export const useEvalStore = create<EvalState>()(
-  devtools(
-    (set) => ({
+  withDevtools(
+    (set: any) => ({
       ...initialState,
 
       setUsers: (users) => set({ users }),
@@ -121,6 +124,6 @@ export const useEvalStore = create<EvalState>()(
         set({ sessionRuns: [], selectedRunId: null, session: null }),
       reset: () => set(initialState),
     }),
-    { name: "EvalStore" }
+    "EvalStore"
   )
 );

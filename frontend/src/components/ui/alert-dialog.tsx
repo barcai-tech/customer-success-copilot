@@ -8,7 +8,7 @@ const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 const AlertDialogPortal = AlertDialogPrimitive.Portal;
 const AlertDialogOverlay = ({ className, ...props }: React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>) => (
   <AlertDialogPrimitive.Overlay
-    className={cn("fixed inset-0 bg-black/40 backdrop-blur-sm", className)}
+    className={cn("fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm", className)}
     {...props}
   />
 );
@@ -19,7 +19,7 @@ const AlertDialogContent = ({ className, ...props }: React.ComponentPropsWithout
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
       className={cn(
-        "fixed left-1/2 top-1/2 w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-background p-6 shadow-lg focus:outline-none",
+        "fixed left-1/2 top-1/2 z-[60] w-[90vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md border bg-background p-6 shadow-lg focus:outline-none",
         className
       )}
       {...props}
@@ -72,4 +72,3 @@ export {
   AlertDialogAction,
   AlertDialogCancel,
 };
-

@@ -45,9 +45,14 @@ interface DetailLogState {
   clearLogs: () => void;
 }
 
+const withDevtools = <T extends object>(
+  initializer: any,
+  name: string
+) => (process.env.NODE_ENV !== "production" ? devtools(initializer, { name }) : initializer);
+
 export const useDetailLogStore = create<DetailLogState>()(
-  devtools(
-    (set, get) => ({
+  withDevtools(
+    (set: any, get: any) => ({
       currentResult: null,
       logs: new Map(),
 
@@ -158,6 +163,6 @@ export const useDetailLogStore = create<DetailLogState>()(
         set({ currentResult: null, logs: new Map() });
       },
     }),
-    { name: "DetailLogStore" }
+    "DetailLogStore"
   )
 );

@@ -30,6 +30,7 @@ import type { PlannerResult } from "@/src/agent/planner";
 import { parseIntent } from "@/src/agent/intent";
 import { auth } from "@clerk/nextjs/server";
 import { getRandomOutOfScopeReply } from "@/src/agent/outOfScopeReplies";
+import { logger } from "@/src/lib/logger";
 
 type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
 
@@ -247,7 +248,7 @@ export async function runLlmPlanner(
     // No tool calls this turn: attempt to read final JSON
     const content = resp.message ?? "";
     if (process.env["LLM_DEBUG"] === "1") {
-      console.log("LLM final content:", content);
+      logger.debug("LLM final content received");
     }
     let parsed: unknown;
     try {
@@ -281,7 +282,7 @@ export async function runLlmPlanner(
     const result = PlannerResultSchema.safeParse(parsed);
     if (!result.success) {
       if (process.env["LLM_DEBUG"] === "1") {
-        console.error("Planner result validation error:", result.error.message);
+      logger.error("Planner result validation error:", result.error.message);
       }
       if (repairAttempts < 1) {
         repairAttempts++;

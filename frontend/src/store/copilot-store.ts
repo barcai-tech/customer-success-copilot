@@ -16,6 +16,7 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   timestamp: Date;
+  taskId?: string;
   result?: PlannerResult;
   error?: string;
 }
@@ -45,6 +46,7 @@ export interface CopilotState {
   // Actions - Chat
   setInputValue: (value: string) => void;
   addMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => void;
+  setMessages: (messages: ChatMessage[]) => void;
   clearMessages: () => void;
 
   // Actions - Execution
@@ -54,7 +56,7 @@ export interface CopilotState {
   reset: () => void;
 
   // Streaming helpers
-  beginAssistantMessage: (content?: string) => string;
+  beginAssistantMessage: (content?: string, id?: string) => string;
   patchActiveAssistantResult: (partial: Partial<PlannerResult>) => void;
   finalizeActiveAssistant: (final: PlannerResult, content?: string) => void;
   setStream: (es: EventSource | null) => void;
@@ -131,6 +133,7 @@ export const useCopilotStore = create<CopilotState>((set, _get) => ({
         },
       ],
     })),
+  setMessages: (messages) => set({ messages }),
   clearMessages: () => set({ messages: [] }),
 
   // Actions - Execution
@@ -150,8 +153,8 @@ export const useCopilotStore = create<CopilotState>((set, _get) => ({
     }),
 
   // Streaming helpers
-  beginAssistantMessage: (content = "") => {
-    const newId = Math.random().toString(36).substring(7);
+  beginAssistantMessage: (content = "", id) => {
+    const newId = id || Math.random().toString(36).substring(7);
     set((state) => ({
       messages: [
         ...state.messages,
@@ -160,6 +163,7 @@ export const useCopilotStore = create<CopilotState>((set, _get) => ({
           role: "assistant",
           content,
           timestamp: new Date(),
+          taskId: id,
           result: { usedTools: [] }, // Initialize with empty result to show skeleton
         },
       ],

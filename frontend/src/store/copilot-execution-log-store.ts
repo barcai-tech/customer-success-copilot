@@ -19,9 +19,12 @@ interface CopilotExecutionLogState {
   clearLogs: (messageId?: string) => void;
 }
 
+const withDevtools = <T extends object>(initializer: any, name: string) =>
+  process.env.NODE_ENV !== "production" ? devtools(initializer, { name }) : initializer;
+
 export const useCopilotExecutionLogStore = create<CopilotExecutionLogState>()(
-  devtools(
-    (set) => ({
+  withDevtools(
+    (set: any) => ({
       logs: [],
 
       addLog: (message, level = "info", messageId) =>
@@ -45,6 +48,6 @@ export const useCopilotExecutionLogStore = create<CopilotExecutionLogState>()(
             : [],
         })),
     }),
-    { name: "CopilotExecutionLogStore" }
+    "CopilotExecutionLogStore"
   )
 );

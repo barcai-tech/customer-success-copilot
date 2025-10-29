@@ -9,11 +9,19 @@ import type {
 import { db } from "@/src/db/client";
 import { companies } from "@/src/db/schema";
 import { eq } from "drizzle-orm";
+import { logger } from "@/src/lib/logger";
+import { hasEvalAccess } from "@/src/lib/authz";
 
 export async function POST(req: NextRequest) {
   const { userId } = await auth();
   if (!userId)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Admin-only endpoint: verify eval access
+  const allowed = await hasEvalAccess();
+  if (!allowed) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   let body: RunEvalRequest;
   try {
@@ -22,7 +30,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { customerIds, actions } = body;
+  const { customerIds, actions, ownerUserId: targetOwnerUserId } = body;
 
   if (!Array.isArray(customerIds) || customerIds.length === 0) {
     return NextResponse.json(
@@ -43,20 +51,28 @@ export async function POST(req: NextRequest) {
     async start(controller) {
       try {
         // Fetch customer details from database
+        // Determine which user's customers to use for this eval
+        const ownerForEval = targetOwnerUserId || userId;
         const customerDetails = await db
-          .select({ id: companies.externalId, name: companies.name })
+          .select({
+            id: companies.externalId,
+            name: companies.name,
+            ownerUserId: companies.ownerUserId,
+          })
           .from(companies)
-          .where(eq(companies.ownerUserId, userId));
+          .where(eq(companies.ownerUserId, ownerForEval));
 
-        const customerMap = new Map(customerDetails.map((c) => [c.id, c.name]));
+        const customerMap = new Map(
+          customerDetails.map((c) => [c.id, { name: c.name, ownerUserId: c.ownerUserId }])
+        );
 
         // Run evaluations
         const sessionId = randomUUID();
         const results: EvalResult[] = [];
 
         for (const customerId of customerIds) {
-          const customerName = customerMap.get(customerId);
-          if (!customerName) continue;
+          const customerInfo = customerMap.get(customerId);
+          if (!customerInfo) continue;
 
           for (const action of actions) {
             const startTime = Date.now();
@@ -69,7 +85,7 @@ export async function POST(req: NextRequest) {
                   type: "test_start",
                   resultId,
                   customerId,
-                  customerName,
+                  customerName: customerInfo.name,
                   action,
                 })}\n\n`
               )
@@ -78,8 +94,9 @@ export async function POST(req: NextRequest) {
             try {
               // Trigger the quick action via the streaming endpoint
               const searchParams = new URLSearchParams({
-                message: generatePromptForAction(action, customerName),
+                message: generatePromptForAction(action, customerInfo.name),
                 selectedCustomerId: customerId,
+                ownerUserId: customerInfo.ownerUserId,
               });
 
               const response = await fetch(
@@ -88,6 +105,9 @@ export async function POST(req: NextRequest) {
                   method: "GET",
                   headers: {
                     "User-Agent": "EvalRunner/1.0",
+                    // Signal to the copilot route that this is an eval-run and
+                    // that ownerUserId override is intentional
+                    "x-eval-run": "1",
                   },
                 }
               );
@@ -98,7 +118,7 @@ export async function POST(req: NextRequest) {
                   id: resultId,
                   timestamp: new Date().toISOString(),
                   customerId,
-                  customerName,
+                  customerName: customerInfo.name,
                   action: action as unknown as EvalResult["action"],
                   status: "failure",
                   error: `Stream returned ${response.status}`,
@@ -118,7 +138,7 @@ export async function POST(req: NextRequest) {
                       type: "test_complete",
                       resultId,
                       customerId,
-                      customerName,
+                      customerName: customerInfo.name,
                       action,
                       status: "failure",
                       durationMs,
@@ -187,7 +207,7 @@ export async function POST(req: NextRequest) {
                 id: resultId,
                 timestamp: new Date().toISOString(),
                 customerId,
-                customerName,
+                customerName: customerInfo.name,
                 action: action as unknown as EvalResult["action"],
                 status,
                 error:
@@ -212,7 +232,7 @@ export async function POST(req: NextRequest) {
                     type: "test_complete",
                     resultId,
                     customerId,
-                    customerName,
+                    customerName: customerInfo.name,
                     action,
                     status,
                     durationMs,
@@ -229,7 +249,7 @@ export async function POST(req: NextRequest) {
                 id: resultId,
                 timestamp: new Date().toISOString(),
                 customerId,
-                customerName,
+                customerName: customerInfo?.name || "",
                 action: action as unknown as EvalResult["action"],
                 status: "timeout",
                 error: (e as Error).message,
@@ -251,7 +271,7 @@ export async function POST(req: NextRequest) {
                     type: "test_complete",
                     resultId,
                     customerId,
-                    customerName,
+                    customerName: customerInfo?.name || "",
                     action,
                     status: "timeout",
                     durationMs,
@@ -273,7 +293,7 @@ export async function POST(req: NextRequest) {
           timestamp: new Date().toISOString(),
           customerIds,
           actions: actions as unknown as EvalSession["actions"],
-          userId,
+          userId: ownerForEval,
           results,
           summary,
         };
@@ -394,22 +414,22 @@ async function parseStreamResponse(
               if (onIntermediateEvent) {
                 onIntermediateEvent({ type: eventType, ...eventData });
               }
-            } catch (e) {
-              console.error("Failed to parse intermediate event:", e);
-            }
+              } catch (e) {
+                logger.error("Failed to parse intermediate event:", e);
+              }
           }
         }
         if (line.startsWith("data: ")) {
           try {
             finalResult = JSON.parse(line.slice(6));
           } catch (e) {
-            console.error("Failed to parse final result:", e);
+            logger.error("Failed to parse final result:", e);
           }
         }
       }
     }
   } catch (e) {
-    console.error("Error reading stream:", e);
+    logger.error("Error reading stream:", e);
   }
 
   return finalResult;

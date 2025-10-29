@@ -5,6 +5,7 @@ import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/src/components/ui/command";
 import { Button } from "../ui/button";
 import { useEffect } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { useCopilotStore } from "../../store/copilot-store";
 
 interface CustomerComboboxProps {
@@ -22,6 +23,7 @@ export function CustomerCombobox({
   const setCustomer = useCopilotStore((state) => state.setCustomer);
   const customers = useCopilotStore((s) => s.customers);
   const setCustomers = useCopilotStore((s) => s.setCustomers);
+  const { isSignedIn } = useAuth();
 
   useEffect(() => {
     let ignore = false;
@@ -36,11 +38,27 @@ export function CustomerCombobox({
     return () => { ignore = true; };
   }, [setCustomers]);
 
+  // Auto-select last active customer after auth and customers are loaded
+  useEffect(() => {
+    if (!isSignedIn) return; // only restore when signed in
+    if (selectedCustomer) return;
+    if (!customers || customers.length === 0) return;
+    try {
+      const lastId = localStorage.getItem("lastCustomerId");
+      if (!lastId) return;
+      const found = customers.find((c) => c.id === lastId);
+      if (found) setCustomer(found);
+    } catch {}
+  }, [isSignedIn, customers, selectedCustomer, setCustomer]);
+
   const handleSelect = useCallback(
     (customerId: string) => {
       const customer = customers.find((c) => c.id === customerId);
       if (customer) {
         setCustomer(customer);
+        try {
+          localStorage.setItem("lastCustomerId", customer.id);
+        } catch {}
         onSelect?.(customerId);
       }
       setOpen(false);

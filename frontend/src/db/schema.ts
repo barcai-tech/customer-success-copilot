@@ -9,6 +9,8 @@ import {
   index,
   uniqueIndex,
   primaryKey,
+  boolean,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
@@ -45,6 +47,8 @@ export const messages = pgTable(
     role: text("role").notNull(), // "user" | "assistant" | "system"
     content: text("content").notNull(),
     resultJson: jsonb("result_json"), // optional structured result
+    taskId: uuid("task_id"),
+    hidden: boolean("hidden").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -52,11 +56,30 @@ export const messages = pgTable(
   (t) => ({
     messagesOwnerIdx: index("messages_owner_idx").on(t.ownerUserId),
     messagesCompanyIdx: index("messages_company_idx").on(t.companyExternalId),
+    messagesTaskIdx: index("messages_task_idx").on(t.taskId),
+    // DB-level FK omitted due to drizzle-kit composite FK limitations; enforced via relations
   })
 );
 
+// companiesRelations is defined after dependent tables (see below)
+
+// Define reverse relation so Drizzle can resolve the link in Studio.
+// We relate messages (ownerUserId, companyExternalId) -> companies (ownerUserId, externalId)
+export const messagesRelations = relations(messages, ({ one }) => ({
+  company: one(companies, {
+    fields: [messages.ownerUserId, messages.companyExternalId],
+    references: [companies.ownerUserId, companies.externalId],
+  }),
+}));
+
+// Other relations are defined after all tables
+
+// Now that all dependent tables are declared, we can declare companies relations
 export const companiesRelations = relations(companies, ({ many }) => ({
   messages: many(messages),
+  contracts: many(contracts),
+  usage: many(usageSummaries),
+  tickets: many(ticketSummaries),
 }));
 
 // Tool data tables (DB-native instead of S3)
@@ -73,6 +96,7 @@ export const contracts = pgTable(
     contractsCompanyIdx: index("contracts_company_idx").on(t.companyExternalId),
     // Enforce one row per (owner, company)
     contractsPk: primaryKey({ columns: [t.ownerUserId, t.companyExternalId] }),
+    // DB-level FK omitted; enforced via relations
   })
 );
 
@@ -89,6 +113,7 @@ export const usageSummaries = pgTable(
     usageOwnerIdx: index("usage_owner_idx").on(t.ownerUserId),
     usageCompanyIdx: index("usage_company_idx").on(t.companyExternalId),
     usagePk: primaryKey({ columns: [t.ownerUserId, t.companyExternalId] }),
+    // DB-level FK omitted; enforced via relations
   })
 );
 
@@ -106,6 +131,7 @@ export const ticketSummaries = pgTable(
     ticketsOwnerIdx: index("tickets_owner_idx").on(t.ownerUserId),
     ticketsCompanyIdx: index("tickets_company_idx").on(t.companyExternalId),
     ticketsPk: primaryKey({ columns: [t.ownerUserId, t.companyExternalId] }),
+    // DB-level FK omitted; enforced via relations
   })
 );
 
@@ -197,5 +223,27 @@ export const execStepsRelations = relations(execSteps, ({ one }) => ({
   result: one(evalResults, {
     fields: [execSteps.resultId],
     references: [evalResults.id],
+  }),
+}));
+
+// Define reverse relations for tool data tables to companies
+export const contractsRelations = relations(contracts, ({ one }) => ({
+  company: one(companies, {
+    fields: [contracts.ownerUserId, contracts.companyExternalId],
+    references: [companies.ownerUserId, companies.externalId],
+  }),
+}));
+
+export const usageRelations = relations(usageSummaries, ({ one }) => ({
+  company: one(companies, {
+    fields: [usageSummaries.ownerUserId, usageSummaries.companyExternalId],
+    references: [companies.ownerUserId, companies.externalId],
+  }),
+}));
+
+export const ticketsRelations = relations(ticketSummaries, ({ one }) => ({
+  company: one(companies, {
+    fields: [ticketSummaries.ownerUserId, ticketSummaries.companyExternalId],
+    references: [companies.ownerUserId, companies.externalId],
   }),
 }));

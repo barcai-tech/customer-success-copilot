@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CopilotInput } from "./CopilotInput";
@@ -13,27 +13,62 @@ import { useCopilotExecutionLogStore } from "../../store/copilot-execution-log-s
 import { toast } from "sonner";
 import { Info } from "lucide-react";
 import { SignedOut } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
 
-export function CopilotDashboard() {
+type ServerAction<TArgs extends any[], TResult> = (...args: TArgs) => Promise<TResult>;
+
+interface CopilotDashboardProps {
+  actions: {
+    saveMessage: ServerAction<[{ companyExternalId: string; role: "user" | "assistant" | "system"; content: string; resultJson?: unknown }], any>;
+    listMessagesForCustomer: ServerAction<[{ companyExternalId: string; limit?: number }], Array<any>>;
+    hideTask: ServerAction<[{ companyExternalId: string; taskId: string }], { ok: true }>;
+  };
+}
+
+export function CopilotDashboard({ actions }: CopilotDashboardProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const searchParams = useSearchParams();
 
   const selectedCustomer = useCopilotStore((state) => state.selectedCustomer);
   const customers = useCopilotStore((state) => state.customers);
   const addMessage = useCopilotStore((state) => state.addMessage);
+  const setMessages = useCopilotStore((state) => state.setMessages);
+  const reset = useCopilotStore((state) => state.reset);
+  const cancelStream = useCopilotStore((state) => state.cancelStream);
+  const { isSignedIn } = useAuth();
   const setStatus = useCopilotStore((state) => state.setStatus);
   const setCustomer = useCopilotStore((state) => state.setCustomer);
   const setInputValue = useCopilotStore((state) => state.setInputValue);
   // const setResult = useCopilotStore((state) => state.setResult);
   const setError = useCopilotStore((state) => state.setError);
+  const quickActionAppliedRef = useRef(false);
 
   const handleSubmit = useCallback(
-    async (message: string) => {
+    async (message: string, customerIdOverride?: string) => {
       // Add user message
+      const taskId = (typeof crypto !== "undefined" && (crypto as any).randomUUID)
+        ? (crypto as any).randomUUID()
+        : Math.random().toString(36).substring(2);
       addMessage({
         role: "user",
         content: message,
+        taskId,
       });
+      try {
+        // Ensure any previous stream is cancelled before starting a new one
+        try {
+          useCopilotStore.getState().cancelStream();
+        } catch {}
+        const companyId = customerIdOverride || useCopilotStore.getState().selectedCustomer?.id;
+        if (companyId) {
+          await actions.saveMessage({
+            companyExternalId: companyId,
+            role: "user",
+            content: message,
+            taskId,
+          });
+        }
+      } catch {}
 
       // Set loading state
       setStatus("running");
@@ -41,13 +76,13 @@ export function CopilotDashboard() {
       try {
         // Prefer streaming endpoint for progressive updates
         const params = new URLSearchParams({ message });
-        if (selectedCustomer?.id)
-          params.set("selectedCustomerId", selectedCustomer.id);
+        const companyId2 = customerIdOverride || useCopilotStore.getState().selectedCustomer?.id;
+        if (companyId2) params.set("selectedCustomerId", companyId2);
 
         // Start a placeholder assistant message to stream into
         const assistantId = useCopilotStore
           .getState()
-          .beginAssistantMessage("Preparing...");
+          .beginAssistantMessage("Preparing...", taskId);
 
         // Helper to format duration
         const formatDuration = (ms: number) => {
@@ -154,7 +189,7 @@ export function CopilotDashboard() {
             useCopilotStore.getState().patchActiveAssistantResult(data);
           } catch {}
         });
-        source.addEventListener("final", (ev) => {
+        source.addEventListener("final", async (ev) => {
           try {
             const data = JSON.parse((ev as MessageEvent).data);
             if (data.planSource === "heuristic" && data.planHint) {
@@ -166,6 +201,17 @@ export function CopilotDashboard() {
                 data,
                 data.summary || "Here are the results:"
               );
+            // Persist assistant message with final result
+            const companyId3 = customerIdOverride || useCopilotStore.getState().selectedCustomer?.id;
+            if (companyId3) {
+              await actions.saveMessage({
+                companyExternalId: companyId3,
+                role: "assistant",
+                content: data.summary || "",
+                resultJson: data,
+                taskId,
+              });
+            }
             toast.success("Plan complete", {
               description:
                 data.planSource === "llm"
@@ -201,8 +247,42 @@ export function CopilotDashboard() {
         setError(errorMessage);
       }
     },
-    [addMessage, setStatus, setError, selectedCustomer?.id]
+    [actions, addMessage, setStatus, setError, selectedCustomer?.id]
   );
+
+  // Load persisted messages when customer changes
+  useEffect(() => {
+    (async () => {
+      if (!isSignedIn || !selectedCustomer?.id) return;
+      try {
+        const rows = await actions.listMessagesForCustomer({
+          companyExternalId: selectedCustomer.id,
+          limit: 200,
+        });
+        const mapped = rows.map((r: any) => ({
+          id: r.id,
+          role: r.role,
+          content: r.content,
+          timestamp: new Date(r.createdAt),
+          taskId: r.taskId ?? r.task_id ?? undefined,
+          result: r.resultJson ?? undefined,
+        }));
+        // Avoid overriding in-flight UI messages (e.g., just-sent prompt)
+        const current = useCopilotStore.getState().messages;
+        if (current.length === 0) setMessages(mapped);
+      } catch {}
+    })();
+  }, [actions, isSignedIn, selectedCustomer?.id, setMessages]);
+
+  // Clear in-memory chat state when signing out to avoid showing private history
+  useEffect(() => {
+    if (!isSignedIn) {
+      try {
+        cancelStream();
+      } catch {}
+      reset();
+    }
+  }, [isSignedIn, cancelStream, reset]);
 
   // Handle URL parameters for quick actions from Dashboard
   useEffect(() => {
@@ -210,6 +290,7 @@ export function CopilotDashboard() {
     const task = searchParams.get("task");
 
     if (customerId && task && customers.length > 0) {
+      if (quickActionAppliedRef.current) return; // Prevent double-run in Strict Mode/dev
       // Find and set the customer
       const customer = customers.find((c) => c.id === customerId);
       if (customer) {
@@ -242,7 +323,10 @@ export function CopilotDashboard() {
 
         // Auto-submit after a brief delay to ensure UI is ready
         setTimeout(() => {
-          handleSubmit(prompt);
+          if (!quickActionAppliedRef.current) {
+            quickActionAppliedRef.current = true;
+            handleSubmit(prompt, customer.id);
+          }
         }, 100);
 
         // Clear URL parameters to avoid re-triggering
@@ -327,7 +411,25 @@ export function CopilotDashboard() {
             <>
               {/* Messages - Independent scroll container */}
               <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 lg:px-8">
-                <MessageList />
+        <MessageList
+          onHide={async ({ id: taskId, assistantId }) => {
+            try {
+              if (!selectedCustomer?.id) return;
+              await actions.hideTask({ companyExternalId: selectedCustomer.id, taskId });
+              if (assistantId && assistantId !== taskId) {
+                // Hide legacy assistant message without taskId
+                const { hideMessage } = await import("@/app/db-actions");
+                await hideMessage({ id: assistantId });
+              }
+              // Remove all messages for this task from the store
+              setMessages(
+                useCopilotStore
+                  .getState()
+                  .messages.filter((m) => m.taskId !== taskId && m.id !== taskId && m.id !== assistantId)
+              );
+            } catch {}
+          }}
+        />
               </div>
 
               {/* Input - Fixed at bottom */}

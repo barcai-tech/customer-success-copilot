@@ -59,6 +59,8 @@ export type EvalSession = z.infer<typeof EvalSessionSchema>;
 export const RunEvalRequestSchema = z.object({
   customerIds: z.array(z.string()).min(1),
   actions: z.array(QuickActionType).min(1),
+  // When running evals for another user, include their Clerk user ID
+  ownerUserId: z.string().optional(),
 });
 
 export type RunEvalRequest = z.infer<typeof RunEvalRequestSchema>;

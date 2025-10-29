@@ -5,7 +5,7 @@ export type CustomerRow = {
   name: string;
   trend?: string | null;
   openTickets?: number | null;
-  renewalDate?: string | null;
+  renewalDate?: string | Date | null;
 };
 
 export type CustomerDetails = {
@@ -14,7 +14,7 @@ export type CustomerDetails = {
     name: string;
   };
   contract?: {
-    renewalDate?: string;
+    renewalDate?: string | Date;
     arr?: number;
   };
   tickets?: {

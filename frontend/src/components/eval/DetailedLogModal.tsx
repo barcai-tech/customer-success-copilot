@@ -11,6 +11,7 @@ import { useDetailLogStore } from "@/src/store/eval-detail-store";
 import { getExecutionSteps } from "@/src/db/eval-actions";
 import { DetailedResultLogView } from "./DetailedResultLogView";
 import type { ExecutionStep } from "@/src/store/eval-detail-store";
+import { logger } from "@/src/lib/logger";
 
 interface DetailedLogModalProps {
   resultId: string | null;
@@ -40,7 +41,7 @@ export function DetailedLogModal({
     }
 
     if (storeLog?.steps?.length) {
-      console.log(
+      logger.debug(
         "[DetailedLogModal] Using store log with",
         storeLog.steps.length,
         "steps"
@@ -52,15 +53,15 @@ export function DetailedLogModal({
 
     (async () => {
       try {
-        console.log(
+        logger.debug(
           "[DetailedLogModal] Fetching execution steps for result:",
           resultId
         );
         const dbRows = await getExecutionSteps(resultId);
-        console.log("[DetailedLogModal] Got db rows:", dbRows?.length);
+        logger.debug("[DetailedLogModal] Got db rows:", dbRows?.length);
         if (isMounted) {
           if (!dbRows || dbRows.length === 0) {
-            console.log("[DetailedLogModal] No steps found in database");
+            logger.debug("[DetailedLogModal] No steps found in database");
             setDbSteps([]);
             return;
           }
@@ -78,7 +79,7 @@ export function DetailedLogModal({
             description: row.description || undefined,
             durationMs: row.durationMs || undefined,
           }));
-          console.log(
+          logger.debug(
             "[DetailedLogModal] Converted",
             convertedSteps.length,
             "steps"
@@ -86,7 +87,7 @@ export function DetailedLogModal({
           setDbSteps(convertedSteps);
         }
       } catch (error) {
-        console.error(
+        logger.error(
           "[DetailedLogModal] Failed to fetch execution steps:",
           error
         );

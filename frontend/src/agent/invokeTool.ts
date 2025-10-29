@@ -1,6 +1,8 @@
 "use server";
 
 import { signHmac, nowMs } from "@/src/lib/hmac";
+import { logger } from "@/src/lib/logger";
+import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
 import { Envelope as EnvelopeSchema } from "@/src/contracts/tools";
 
@@ -45,36 +47,64 @@ export async function invokeTool<T = unknown>(
   const base = mustEnv("BACKEND_BASE_URL");
   const secret = mustEnv("HMAC_SECRET");
   const clientId = process.env["HMAC_CLIENT_ID"] ?? "copilot-frontend";
-
   const url = `${base.replace(/\/$/, "")}/${tool}`;
-  const raw = JSON.stringify({ customerId: body.customerId, params: body.params ?? {} });
-  const ts = nowMs();
-  const sig = signHmac(secret, ts, clientId, raw);
+  const payload = { customerId: body.customerId, params: body.params ?? {} };
+  const raw = JSON.stringify(payload);
 
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-Timestamp": ts,
-      "X-Client": clientId,
-      "X-Signature": sig,
-    },
-    body: raw,
-    // Important: server action fetch (no caching)
-    cache: "no-store",
-  });
+  const ENABLE_RETRY = process.env.ENABLE_TOOL_RETRY === "1";
+  const RETRY_CODES = (process.env.TOOL_RETRY_CODES ?? "UNAUTHORIZED,TOOL_FAILURE,EXCEPTION")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const RETRY_DELAY_MS = Number(process.env.TOOL_RETRY_DELAY_MS ?? "200");
+  const correlationId = randomUUID();
 
-  let json: unknown;
+  const postOnce = async (): Promise<ResponseEnvelope<T>> => {
+    const ts = nowMs();
+    const sig = signHmac(secret, ts, clientId, raw);
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Timestamp": ts,
+        "X-Client": clientId,
+        "X-Signature": sig,
+      },
+      body: raw,
+      cache: "no-store",
+    });
+
+    let json: unknown;
+    try {
+      json = await res.json();
+    } catch {
+      throw new Error(`Invalid JSON from tool ${tool}`);
+    }
+    if (!schema) return json as ResponseEnvelope<T>;
+    const parsed = await EnvelopeSchema(schema).safeParseAsync(json);
+    if (!parsed.success) {
+      throw new Error(`Schema validation failed for ${tool}: ${parsed.error.message}`);
+    }
+    return parsed.data as ResponseEnvelope<T>;
+  };
+
+  // First attempt
+  const first = await postOnce();
+  if (first.ok) return first;
+
+  // Decide retry
+  const code = first.error?.code || "";
+  if (!ENABLE_RETRY || !RETRY_CODES.includes(code)) {
+    return first;
+  }
+
   try {
-    json = await res.json();
-  } catch {
-    throw new Error(`Invalid JSON from tool ${tool}`);
-  }
-  if (!schema) return json as ResponseEnvelope<T>;
-  // Validate envelope with provided schema
-  const parsed = await EnvelopeSchema(schema).safeParseAsync(json);
-  if (!parsed.success) {
-    throw new Error(`Schema validation failed for ${tool}: ${parsed.error.message}`);
-  }
-  return parsed.data as ResponseEnvelope<T>;
+    const hash = createHash("sha256").update(raw).digest("hex").slice(0, 8);
+    logger.debug("[tool retry]", { tool, correlationId, code, bodyHash: hash });
+  } catch {}
+
+  // Backoff then retry once
+  await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+  const second = await postOnce();
+  return second;
 }

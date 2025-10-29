@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { Button } from "@/src/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { listAllUsers, getCustomersForUser } from "@/app/eval/actions";
 import { useEvalStore } from "@/src/store/eval-store";
 import { useEvalStreaming } from "@/src/hooks/useEvalStreaming";
 import { useDetailLogStore } from "@/src/store/eval-detail-store";
@@ -14,8 +13,20 @@ import { CustomerSelector } from "./CustomerSelector";
 import { ActionSelector } from "./ActionSelector";
 import { ResultsDisplay } from "./ResultsDisplay";
 import { EvalLogs } from "./EvalLogs";
+import { logger } from "@/src/lib/logger";
 
-export function EvalDashboard() {
+type ServerAction<TArgs extends any[], TResult> = (
+  ...args: TArgs
+) => Promise<TResult>;
+
+interface EvalDashboardProps {
+  actions: {
+    listAllUsers: ServerAction<[], any[]>;
+    getCustomersForUser: ServerAction<[string], any[]>;
+  };
+}
+
+export function EvalDashboard({ actions }: EvalDashboardProps) {
   // Get all state from Zustand store
   const {
     users,
@@ -50,20 +61,20 @@ export function EvalDashboard() {
     const loadUsers = async () => {
       try {
         setUsersLoading(true);
-        const loadedUsers = await listAllUsers();
+        const loadedUsers = await actions.listAllUsers();
         setUsers(loadedUsers);
         if (loadedUsers.length > 0) {
           setSelectedUserId(loadedUsers[0].id);
         }
       } catch (error) {
         toast.error("Failed to load users");
-        console.error(error);
+        logger.error(error);
       } finally {
         setUsersLoading(false);
       }
     };
     loadUsers();
-  }, [setUsers, setUsersLoading, setSelectedUserId]);
+  }, [actions, setUsers, setUsersLoading, setSelectedUserId]);
 
   // Load customers when user changes
   useEffect(() => {
@@ -72,18 +83,18 @@ export function EvalDashboard() {
     const loadCustomers = async () => {
       try {
         setCustomersLoading(true);
-        const customers = await getCustomersForUser(selectedUserId);
+        const customers = await actions.getCustomersForUser(selectedUserId);
         setAvailableCustomers(customers);
       } catch (error) {
         toast.error("Failed to load customers");
-        console.error(error);
+        logger.error(error);
       } finally {
         setCustomersLoading(false);
       }
     };
 
     loadCustomers();
-  }, [selectedUserId, setAvailableCustomers, setCustomersLoading]);
+  }, [actions, selectedUserId, setAvailableCustomers, setCustomersLoading]);
 
   const handleRunEval = async () => {
     if (!selectedUserId) {
@@ -113,7 +124,7 @@ export function EvalDashboard() {
       );
     } catch (e) {
       toast.error((e as Error).message);
-      console.error(e);
+      logger.error(e);
     } finally {
       setRunning(false);
     }

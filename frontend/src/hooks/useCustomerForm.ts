@@ -56,12 +56,23 @@ export function useCustomerForm(
         sparkline: "",
       });
     } else if (mode === "edit" && customer && details) {
+      // Normalize renewal date for <input type="date"> as YYYY-MM-DD
+      const normalizeDate = (d?: unknown): string => {
+        if (!d) return "";
+        try {
+          if (d instanceof Date) return d.toISOString().slice(0, 10);
+          if (typeof d === "string" && d) {
+            const dt = new Date(d);
+            if (!Number.isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+          }
+        } catch {}
+        return "";
+      };
+
       form.reset({
         name: details.company?.name || customer.name || "",
         externalId: details.company?.id || customer.id,
-        renewalDate: details.contract?.renewalDate
-          ? String(details.contract.renewalDate).slice(0, 10)
-          : "",
+        renewalDate: normalizeDate(details.contract?.renewalDate),
         arr:
           typeof details.contract?.arr === "number"
             ? String(details.contract.arr)

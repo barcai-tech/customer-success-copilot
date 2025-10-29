@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Mail, Copy, Check } from "lucide-react";
 import type { Email } from "@/src/contracts/tools";
+import { logger } from "@/src/lib/logger";
 import { Button } from "@/src/components/ui/button";
 
 interface EmailDraftCardProps {
@@ -18,7 +19,7 @@ export function EmailDraftCard({ email }: EmailDraftCardProps) {
       setCopiedField(field);
       setTimeout(() => setCopiedField(null), 2000);
     } catch (error) {
-      console.error("Failed to copy:", error);
+      logger.error("Failed to copy:", error);
     }
   };
 

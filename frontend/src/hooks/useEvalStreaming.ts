@@ -6,6 +6,7 @@ import { useDetailLogStore } from "@/src/store/eval-detail-store";
 import { useEvalStore } from "@/src/store/eval-store";
 import { saveEvalSession, saveExecutionSteps } from "@/src/db/eval-actions";
 import type { EvalSession, EvalResult } from "@/src/contracts/eval";
+import { logger } from "@/src/lib/logger";
 
 interface Summary {
   total: number;
@@ -46,10 +47,11 @@ export function useEvalStreaming() {
       addLog("", "info");
 
       try {
+        const selectedUserId = useEvalStore.getState().selectedUserId || undefined;
         const response = await fetch("/api/eval/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customerIds, actions }),
+          body: JSON.stringify({ customerIds, actions, ownerUserId: selectedUserId }),
         });
 
         if (!response.ok) {
@@ -91,10 +93,10 @@ export function useEvalStreaming() {
               try {
                 const data = JSON.parse(line.slice(6));
 
-                console.log("[useEvalStreaming] Event:", data.type, data);
+                logger.debug("[useEvalStreaming] Event:", data.type, data);
 
                 if (data.type === "test_start") {
-                  console.log(
+                  logger.debug(
                     "[useEvalStreaming] test_start, resultId:",
                     data.resultId
                   );
@@ -105,7 +107,7 @@ export function useEvalStreaming() {
                   // Start a new result log for detailed execution tracking
                   currentResultId = data.resultId;
                   if (currentResultId) {
-                    console.log(
+                    logger.debug(
                       "[useEvalStreaming] Calling startResult with",
                       currentResultId
                     );
@@ -123,7 +125,7 @@ export function useEvalStreaming() {
                       "success"
                     );
                     if (currentResultId) {
-                      console.log(
+                      logger.debug(
                         "[useEvalStreaming] Adding planning step to",
                         currentResultId
                       );
@@ -142,7 +144,7 @@ export function useEvalStreaming() {
                       "success"
                     );
                     if (currentResultId) {
-                      console.log(
+                      logger.debug(
                         "[useEvalStreaming] Adding synthesis step to",
                         currentResultId
                       );
@@ -162,7 +164,7 @@ export function useEvalStreaming() {
                       "success"
                     );
                     if (currentResultId) {
-                      console.log(
+                      logger.debug(
                         "[useEvalStreaming] Adding tool step to",
                         currentResultId
                       );
@@ -176,10 +178,10 @@ export function useEvalStreaming() {
                   } else {
                     addLog(`✗ ${data.name} - ${data.error}`, "error");
                     if (currentResultId) {
-                      console.log(
-                        "[useEvalStreaming] Adding error step to",
-                        currentResultId
-                      );
+                    logger.debug(
+                      "[useEvalStreaming] Adding error step to",
+                      currentResultId
+                    );
                       addStep(currentResultId, {
                         title: `Tool: ${data.name}`,
                         description: `Failed: ${data.error}`,
@@ -226,11 +228,11 @@ export function useEvalStreaming() {
 
                   // Persist to database
                   try {
-                    console.log("[useEvalStreaming] Saving eval session...");
+                    logger.debug("[useEvalStreaming] Saving eval session...");
                     const { sessionId, resultIdMap } = await saveEvalSession(
                       data.session
                     );
-                    console.log(
+                    logger.debug(
                       "[useEvalStreaming] Session saved with ID:",
                       sessionId,
                       "Result map:",
@@ -242,7 +244,7 @@ export function useEvalStreaming() {
                     for (const result of data.session.results) {
                       const dbResultId = resultIdMap.get(result.id);
                       const log = store.getResultLog(result.id);
-                      console.log(
+                      logger.debug(
                         `[useEvalStreaming] Result ${
                           result.id
                         } (db: ${dbResultId}) has ${
@@ -250,7 +252,7 @@ export function useEvalStreaming() {
                         } steps`
                       );
                       if (log && log.steps.length > 0 && dbResultId) {
-                        console.log(
+                        logger.debug(
                           `[useEvalStreaming] Saving ${log.steps.length} steps for result ${dbResultId}`
                         );
                         await saveExecutionSteps(dbResultId, log.steps);
@@ -259,7 +261,7 @@ export function useEvalStreaming() {
 
                     addLog("✓ Session saved to database", "success");
                   } catch (error) {
-                    console.error(
+                    logger.error(
                       "[useEvalStreaming] Failed to save session to database:",
                       error
                     );
@@ -269,7 +271,7 @@ export function useEvalStreaming() {
                   return data.session;
                 }
               } catch (e) {
-                console.error("Failed to parse log data:", e);
+                logger.error("Failed to parse log data:", e);
               }
             }
           }

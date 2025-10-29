@@ -14,9 +14,12 @@ interface EvalLogState {
   clearLogs: () => void;
 }
 
+const withDevtools = <T extends object>(initializer: any, name: string) =>
+  process.env.NODE_ENV !== "production" ? devtools(initializer, { name }) : initializer;
+
 export const useEvalLogStore = create<EvalLogState>()(
-  devtools(
-    (set) => ({
+  withDevtools(
+    (set: any) => ({
       logs: [],
 
       addLog: (message, level = "info") =>
@@ -34,6 +37,6 @@ export const useEvalLogStore = create<EvalLogState>()(
 
       clearLogs: () => set({ logs: [] }),
     }),
-    { name: "EvalLogStore" }
+    "EvalLogStore"
   )
 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Dialog,
@@ -40,6 +40,16 @@ import {
 import { customerFormSchemaTransformed } from "@/src/lib/validation";
 import { useCustomerStore } from "@/src/store/customer-store";
 import { useCustomerForm } from "@/src/hooks/useCustomerForm";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/src/components/ui/alert-dialog";
 
 export function CustomerFormDialog() {
   const router = useRouter();
@@ -58,6 +68,7 @@ export function CustomerFormDialog() {
   } = useCustomerForm(mode, customer, details);
 
   const isAddingNew = mode === "add";
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const handleSubmit = form.handleSubmit(async (values) => {
     // Validate using the transformed schema
@@ -110,13 +121,18 @@ export function CustomerFormDialog() {
   });
 
   return (
+    <>
     <Dialog
       open={isOpen}
       onOpenChange={(o) => {
+        // Only allow closing via explicit actions (Cancel/Save)
         if (!o) closeFormDialog();
       }}
     >
-      <DialogContent>
+      <DialogContent
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>
             {isAddingNew ? "Add New Customer" : "Edit Customer"}
@@ -405,7 +421,15 @@ export function CustomerFormDialog() {
             </div>
 
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeFormDialog}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  // Only prompt if there are unsaved changes
+                  if (form.formState.isDirty) setConfirmOpen(true);
+                  else closeFormDialog();
+                }}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
@@ -420,6 +444,29 @@ export function CustomerFormDialog() {
         </Form>
       </DialogContent>
     </Dialog>
+    {/* Render AlertDialog outside the Dialog to avoid nested overlay interactions */}
+    <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+          <AlertDialogDescription>
+            You have unsaved changes. Closing will discard them.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Continue editing</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={() => {
+              setConfirmOpen(false);
+              closeFormDialog();
+            }}
+          >
+            Discard
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

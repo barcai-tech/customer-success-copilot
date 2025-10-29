@@ -23,11 +23,17 @@ export async function seedGlobalCustomers() {
       // delete then insert to keep it simple and idempotent
       await db
         .delete(contracts)
-        .where(and(eq(contracts.companyExternalId, c.id), eq(contracts.ownerUserId, GLOBAL_OWNER_ID)));
+        .where(
+          and(
+            eq(contracts.companyExternalId, c.id),
+            eq(contracts.ownerUserId, GLOBAL_OWNER_ID)
+          )
+        );
       await db.insert(contracts).values({
         companyExternalId: c.id,
         ownerUserId: GLOBAL_OWNER_ID,
-        renewalDate: cont.renewalDate,
+        // Contracts.renewalDate is a timestamp; store as Date
+        renewalDate: new Date(cont.renewalDate),
         arr: cont.arr,
       });
     }
@@ -64,4 +70,3 @@ export async function seedGlobalCustomers() {
 
   return { ok: true } as const;
 }
-

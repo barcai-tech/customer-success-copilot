@@ -5,6 +5,7 @@ import { evalSessions, evalResults, execSteps } from "@/src/db/schema";
 import { auth } from "@clerk/nextjs/server";
 import type { EvalSession } from "@/src/contracts/eval";
 import type { ExecutionStep } from "@/src/store/eval-detail-store";
+import { logger } from "@/src/lib/logger";
 
 /**
  * Calculate timedOut count from results
@@ -20,11 +21,9 @@ export async function saveEvalSession(session: EvalSession) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  console.log(
-    "[saveEvalSession] Saving session with",
-    session.results.length,
-    "results"
-  );
+  logger.debug("[saveEvalSession] Saving session", {
+    results: session.results.length,
+  });
 
   // Calculate timedOut from results
   const timedOut = session.results.filter((r) => r.status === "timeout").length;
@@ -44,7 +43,7 @@ export async function saveEvalSession(session: EvalSession) {
     .returning({ id: evalSessions.id });
 
   const sessionId = insertedSession[0].id;
-  console.log("[saveEvalSession] Created session with id:", sessionId);
+  logger.debug("[saveEvalSession] Created session", { sessionId });
 
   // Insert results and map temporary IDs to database IDs
   const resultIdMap = new Map<string, string>();
@@ -69,19 +68,17 @@ export async function saveEvalSession(session: EvalSession) {
 
       const dbResultId = insertedResult[0].id;
       resultIdMap.set(result.id, dbResultId);
-      console.log(
-        "[saveEvalSession] Saved result:",
-        result.id,
-        "->",
-        dbResultId
-      );
+      logger.debug("[saveEvalSession] Saved result", {
+        resultId: result.id,
+        dbId: dbResultId,
+      });
     } catch (error) {
-      console.error("[saveEvalSession] Error saving result:", error);
+      logger.error("[saveEvalSession] Error saving result:", error);
       throw error;
     }
   }
 
-  console.log("[saveEvalSession] Successfully saved session and all results");
+  logger.debug("[saveEvalSession] Successfully saved session and all results");
   return { sessionId, resultIdMap };
 }
 
@@ -95,9 +92,10 @@ export async function saveExecutionSteps(
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  console.log(
-    `[saveExecutionSteps] Saving ${steps.length} steps for result ${resultId}`
-  );
+  logger.debug("[saveExecutionSteps] Saving steps", {
+    resultId,
+    count: steps.length,
+  });
 
   // Insert steps
   for (let i = 0; i < steps.length; i++) {
@@ -111,20 +109,20 @@ export async function saveExecutionSteps(
         durationMs: step.durationMs,
         orderIndex: i,
       });
-      console.log(
-        `[saveExecutionSteps] Saved step ${i + 1}/${steps.length}: ${
-          step.title
-        }`
-      );
+      logger.debug("[saveExecutionSteps] Saved step", {
+        ordinal: i + 1,
+        total: steps.length,
+        title: step.title,
+      });
     } catch (error) {
-      console.error(`[saveExecutionSteps] Error saving step ${i}:`, error);
+      logger.error(`[saveExecutionSteps] Error saving step ${i}:`, error);
       throw error;
     }
   }
 
-  console.log(
-    `[saveExecutionSteps] Successfully saved all ${steps.length} steps`
-  );
+  logger.debug("[saveExecutionSteps] Successfully saved all steps", {
+    count: steps.length,
+  });
 }
 
 /**

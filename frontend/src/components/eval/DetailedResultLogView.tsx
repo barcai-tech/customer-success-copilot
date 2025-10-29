@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Clock, Zap } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock } from "lucide-react";
 import type { ExecutionStep } from "@/src/store/eval-detail-store";
 
 interface ExecutionStepViewProps {
@@ -74,7 +74,7 @@ function ExecutionStepView({ step, level = 0 }: ExecutionStepViewProps) {
           {hasChildren && (
             <button
               onClick={() => setExpanded(!expanded)}
-              className={`mt-0.5 p-1 h-6 w-6 flex items-center justify-center hover:bg-white/50 dark:hover:bg-black/20 rounded transition-colors flex-shrink-0 ${getLevelColor(
+              className={`mt-0.5 p-1 h-6 w-6 flex items-center justify-center hover:bg-white/50 dark:hover:bg-black/20 rounded transition-colors shrink-0 ${getLevelColor(
                 step.level
               )}`}
             >
@@ -91,7 +91,7 @@ function ExecutionStepView({ step, level = 0 }: ExecutionStepViewProps) {
             <span
               className={`${getLevelColor(
                 step.level
-              )} text-lg font-semibold mt-0.5 flex-shrink-0`}
+              )} text-lg font-semibold mt-0.5 shrink-0`}
             >
               {getLevelIcon(step.level)}
             </span>
@@ -157,9 +157,9 @@ export function DetailedResultLogView({ log }: DetailedResultLogViewProps) {
         </div>
 
         {/* Summary Stats */}
-        <div className="flex items-center gap-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-4 bg-linear-to-r from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3 flex-1">
-            <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 flex-shrink-0">
+            <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 shrink-0">
               <Clock className="h-4 w-4 text-slate-700 dark:text-slate-300" />
             </div>
             <div className="min-w-0">

@@ -76,8 +76,8 @@ export function ExecutionDetailsLog({
       <div className="max-h-64 overflow-y-auto p-3 font-mono text-xs space-y-0.5">
         {logs.map((log) => (
           <div key={log.id} className={`flex gap-2 ${getLogColor(log.level)}`}>
-            <span className="flex-shrink-0 w-4">{getLogIcon(log.level)}</span>
-            <div className="flex-1 break-words">
+            <span className="shrink-0 w-4">{getLogIcon(log.level)}</span>
+            <div className="flex-1 wrap-break-word">
               <span className="text-muted-foreground">
                 [
                 {log.timestamp.toLocaleTimeString("en-US", {

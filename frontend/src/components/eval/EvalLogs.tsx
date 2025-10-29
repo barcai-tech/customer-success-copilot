@@ -71,10 +71,10 @@ export function EvalLogs() {
                 key={log.id}
                 className={`flex gap-3 ${getLogColor(log.level)}`}
               >
-                <span className="text-gray-600 flex-shrink-0 w-4">
+                <span className="text-gray-600 shrink-0 w-4">
                   {getLogIcon(log.level)}
                 </span>
-                <div className="flex-1 break-words">
+                <div className="flex-1 wrap-break-word">
                   <span className="text-gray-400">
                     [
                     {log.timestamp.toLocaleTimeString("en-US", {

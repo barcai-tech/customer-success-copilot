@@ -48,6 +48,7 @@ frontend/.pnp
 frontend/.pnp.*
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
+frontend/drizzle/
 
 # SAM build artifacts
 infra/.aws-sam/
@@ -59,3 +60,12 @@ docs/_preview/
 
 # Vendored Lambda layer dependencies (rebuilt locally at deploy time)
 infra/layers/common/python/**
+
+# Package manager caches
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Temporary files
+temp/
