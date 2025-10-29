@@ -1,0 +1,6 @@
+{
+  "openTickets": 1,
+  "recentTickets": [
+    { "id": "G-201", "severity": "low" }
+  ]
+}

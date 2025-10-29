@@ -1,0 +1,231 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Customer Success Copilot - Backend Tools (API Gateway + Lambda)
+
+Parameters:
+  StageName:
+    Type: String
+    Default: dev
+  AllowedOrigin:
+    Type: String
+    Default: http://localhost:3000
+  HmacParamName:
+    Type: String
+    Default: /copilot/hmac/v1
+    Description: "SSM Parameter name for HMAC secret (SecureString recommended)"
+  DataBucket:
+    Type: String
+    Default: ""
+  DatabaseUrl:
+    Type: String
+    Default: ""
+    Description: "Postgres connection string for Neon (e.g., postgresql://.../?sslmode=require)"
+
+Conditions:
+  HasDataBucket: !Not [!Equals [!Ref DataBucket, ""]]
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 256
+    CodeUri: ../backend
+    Environment:
+      Variables:
+        ALLOWED_ORIGIN: !Ref AllowedOrigin
+        HMAC_PARAM_NAME: !Ref HmacParamName
+        HMAC_SECRET: ""
+        DATA_BUCKET: !If [HasDataBucket, !Ref DataBucket, ""]
+        DATABASE_URL: !Ref DatabaseUrl
+
+Resources:
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: cs-copilot-common
+      Description: Shared Python utilities (_shared)
+      ContentUri: ./layers/common
+      CompatibleRuntimes:
+        - python3.12
+      RetentionPolicy: Retain
+  Api:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref StageName
+      Cors:
+        AllowMethods: "'POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Signature,X-Timestamp,X-Client'"
+        AllowOrigin: !Sub "'${AllowedOrigin}'"
+
+  GetCustomerUsage:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/get_customer_usage/handler.handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /get_customer_usage
+            Method: post
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
+        - !If
+          - HasDataBucket
+          - Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
+
+  GetRecentTickets:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/get_recent_tickets/handler.handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /get_recent_tickets
+            Method: post
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
+        - !If
+          - HasDataBucket
+          - Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
+
+  GetContractInfo:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/get_contract_info/handler.handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /get_contract_info
+            Method: post
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
+        - !If
+          - HasDataBucket
+          - Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
+
+  CalculateHealth:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/calculate_health/handler.handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /calculate_health
+            Method: post
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
+        - !If
+          - HasDataBucket
+          - Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
+
+  GenerateEmail:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/generate_email/handler.handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /generate_email
+            Method: post
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
+        - !If
+          - HasDataBucket
+          - Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
+
+  GenerateQbrOutline:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: tools/generate_qbr_outline/handler.handler
+      Layers:
+        - !Ref CommonLayer
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Api
+            Path: /generate_qbr_outline
+            Method: post
+      Policies:
+        - Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
+        - !If
+          - HasDataBucket
+          - Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["s3:GetObject"]
+                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
+          - !Ref "AWS::NoValue"
+
+Outputs:
+  ApiUrl:
+    Description: API base URL
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"

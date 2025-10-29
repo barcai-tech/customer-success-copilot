@@ -19,3 +19,53 @@ ehthumbs.db
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# VSCode settings
+.vscode/
+
+# Python / backend
+backend/.venv/
+backend/**/__pycache__/
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/.coverage
+backend/.env
+
+# Env files (anywhere)
+**/.env
+**/.env.local
+**/.env.*.local
+.envrc
+
+# Frontend / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.vercel/
+frontend/coverage/
+frontend/build/
+frontend/.pnp
+frontend/.pnp.*
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
+frontend/drizzle/
+
+# SAM build artifacts
+infra/.aws-sam/
+
+# Docs archives
+docs/*.zip
+docs/**/*.zip
+docs/_preview/
+
+# Vendored Lambda layer dependencies (rebuilt locally at deploy time)
+infra/layers/common/python/**
+
+# Package manager caches
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# Temporary files
+temp/

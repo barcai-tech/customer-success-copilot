@@ -1,0 +1,18 @@
+# Snyk Code (DeepCode) ignore file
+
+# Python virtualenvs and caches
+backend/.venv/
+**/__pycache__/
+
+# SAM build artifacts
+infra/.aws-sam/
+
+# Next.js build + deps
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+
+# Misc
+*.log
+*.swp
+
