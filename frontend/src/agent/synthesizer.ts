@@ -4,7 +4,7 @@
  */
 
 import type { TaskType } from "@/src/store/copilot-store";
-import type { ToolDataMap, MissingState } from "./types";
+import type { ToolDataMap } from "./types";
 import type { PlannerResultJson } from "@/src/contracts/planner";
 import { logger } from "@/src/lib/logger";
 

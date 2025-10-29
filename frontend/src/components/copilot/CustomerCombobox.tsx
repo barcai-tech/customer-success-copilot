@@ -2,15 +2,38 @@
 
 import { useState, useCallback } from "react";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/src/components/ui/command";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/src/components/ui/command";
 import { Button } from "../ui/button";
 import { useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { useCopilotStore } from "../../store/copilot-store";
+import type { Customer } from "../../store/copilot-store";
 
 interface CustomerComboboxProps {
   onSelect?: (customerId: string) => void;
   disabled?: boolean;
+}
+
+type ViewerCustomer = {
+  id: string;
+  name: string;
+  logo?: string | null;
+};
+
+function isViewerCustomer(value: unknown): value is ViewerCustomer {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { id?: unknown }).id === "string" &&
+    typeof (value as { name?: unknown }).name === "string"
+  );
 }
 
 export function CustomerCombobox({
@@ -31,11 +54,22 @@ export function CustomerCombobox({
       try {
         const { listCompaniesForViewer } = await import("@/app/actions");
         const list = await listCompaniesForViewer();
-        if (!ignore && Array.isArray(list)) setCustomers(list as any);
+        if (!ignore && Array.isArray(list)) {
+          const normalized: Customer[] = list
+            .filter(isViewerCustomer)
+            .map((entry) => ({
+              id: entry.id,
+              name: entry.name,
+              logo: entry.logo === null ? undefined : entry.logo,
+            }));
+          setCustomers(normalized);
+        }
       } catch {}
     };
     load();
-    return () => { ignore = true; };
+    return () => {
+      ignore = true;
+    };
   }, [setCustomers]);
 
   // Auto-select last active customer after auth and customers are loaded

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { StateCreator } from "zustand";
 import { devtools } from "zustand/middleware";
 
 export interface CopilotExecutionLog {
@@ -19,35 +20,35 @@ interface CopilotExecutionLogState {
   clearLogs: (messageId?: string) => void;
 }
 
-const withDevtools = <T extends object>(initializer: any, name: string) =>
-  process.env.NODE_ENV !== "production" ? devtools(initializer, { name }) : initializer;
+const initializer: StateCreator<CopilotExecutionLogState> = (set) => ({
+  logs: [],
+
+  addLog: (
+    message: string,
+    level: CopilotExecutionLog["level"] = "info",
+    messageId?: string
+  ) =>
+    set((state: CopilotExecutionLogState) => ({
+      logs: [
+        ...state.logs,
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          timestamp: new Date(),
+          level,
+          message,
+          messageId,
+        } as CopilotExecutionLog,
+      ],
+    })),
+
+  clearLogs: (messageId?: string) =>
+    set((state: CopilotExecutionLogState) => ({
+      logs: messageId
+        ? state.logs.filter((log) => log.messageId !== messageId)
+        : [],
+    })),
+});
 
 export const useCopilotExecutionLogStore = create<CopilotExecutionLogState>()(
-  withDevtools(
-    (set: any) => ({
-      logs: [],
-
-      addLog: (message, level = "info", messageId) =>
-        set((state) => ({
-          logs: [
-            ...state.logs,
-            {
-              id: `${Date.now()}-${Math.random()}`,
-              timestamp: new Date(),
-              level,
-              message,
-              messageId,
-            },
-          ],
-        })),
-
-      clearLogs: (messageId) =>
-        set((state) => ({
-          logs: messageId
-            ? state.logs.filter((log) => log.messageId !== messageId)
-            : [],
-        })),
-    }),
-    "CopilotExecutionLogStore"
-  )
+  devtools(initializer, { name: "CopilotExecutionLogStore" })
 );

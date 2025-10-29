@@ -31,6 +31,7 @@ import {
   type ToolName,
   type ResponseEnvelope,
   type EnvelopeSuccess,
+  type EnvelopeRequest,
 } from "@/src/agent/invokeTool";
 import type {
   Health,
@@ -44,6 +45,14 @@ import { HealthSchema } from "@/src/contracts/tools";
 import { getToolRegistry } from "@/src/agent/tool-registry";
 
 export const dynamic = "force-dynamic";
+
+function invokeToolWithSchema<T extends ToolName>(
+  name: T,
+  body: EnvelopeRequest
+) {
+  const schema = TOOL_SCHEMAS[name] as Parameters<typeof invokeTool>[2];
+  return invokeTool(name, body, schema);
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -489,13 +498,11 @@ export async function GET(req: NextRequest) {
                       };
 
                   try {
-                    const schema = TOOL_SCHEMAS[name];
                     const t0 = performance.now();
-                    const res = await invokeTool(
-                      name,
-                      { customerId: cid, params },
-                      schema
-                    );
+                    const res = await invokeToolWithSchema(name, {
+                      customerId: cid,
+                      params,
+                    });
                     // No automatic public fallback for logged-in users; let the plan work with partials
                     const t1 = performance.now();
                     if (res.ok) {

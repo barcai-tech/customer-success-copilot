@@ -39,20 +39,6 @@ export type ToolName =
   | "generate_qbr_outline";
 
 /**
- * Mapping of tool names to their output schemas
- */
-export type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
-
-export const TOOL_SCHEMAS: ToolSchemaMap = {
-  get_customer_usage: UsageSchema,
-  get_recent_tickets: TicketsSchema,
-  get_contract_info: ContractSchema,
-  calculate_health: HealthSchema,
-  generate_email: EmailSchema,
-  generate_qbr_outline: QbrSchema,
-};
-
-/**
  * Cache of tool results during execution
  */
 export type ToolDataMap = {
@@ -63,6 +49,24 @@ export type ToolDataMap = {
   generate_email?: Email;
   generate_qbr_outline?: Qbr;
 };
+
+export type ToolResult<T extends ToolName> = NonNullable<ToolDataMap[T]>;
+
+/**
+ * Mapping of tool names to their output schemas
+ */
+export type ToolSchemaMap = {
+  [K in ToolName]: z.ZodType<ToolResult<K>>;
+};
+
+export const TOOL_SCHEMAS = {
+  get_customer_usage: UsageSchema,
+  get_recent_tickets: TicketsSchema,
+  get_contract_info: ContractSchema,
+  calculate_health: HealthSchema,
+  generate_email: EmailSchema,
+  generate_qbr_outline: QbrSchema,
+} satisfies ToolSchemaMap;
 
 /**
  * Tool execution metadata
@@ -90,15 +94,6 @@ export interface DecisionLogEntry {
   step: number;
   tool: ToolName;
   reason: string;
-}
-
-/**
- * Missing data state tracking
- */
-export interface MissingState {
-  usage?: boolean;
-  tickets?: boolean;
-  contract?: boolean;
 }
 
 /**

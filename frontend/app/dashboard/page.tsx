@@ -25,7 +25,7 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-semibold">Customers</h1>
         <DashboardActions hasCustomers={rows.length > 0} />
       </div>
-      <CustomersTable initialRows={rows as any} />
+      <CustomersTable initialRows={rows} />
     </div>
   );
 }

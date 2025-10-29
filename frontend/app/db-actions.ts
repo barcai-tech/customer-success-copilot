@@ -7,6 +7,35 @@ import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import { textSchema } from "@/src/lib/validation";
 
+type MessageInsert = typeof messages.$inferInsert;
+type MessageRow = typeof messages.$inferSelect;
+
+export type StoredMessage = {
+  id: string;
+  companyExternalId: string;
+  ownerUserId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  resultJson: unknown | null;
+  taskId: string | null;
+  hidden: boolean;
+  createdAt: Date;
+};
+
+function toStoredMessage(row: MessageRow): StoredMessage {
+  return {
+    id: row.id,
+    companyExternalId: row.companyExternalId,
+    ownerUserId: row.ownerUserId,
+    role: row.role as StoredMessage["role"],
+    content: row.content,
+    resultJson: row.resultJson ?? null,
+    taskId: row.taskId ?? null,
+    hidden: Boolean(row.hidden),
+    createdAt: new Date(row.createdAt),
+  };
+}
+
 export async function upsertCompanyByExternalId(externalId: string, name: string) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
@@ -20,13 +49,15 @@ export async function upsertCompanyByExternalId(externalId: string, name: string
   return inserted;
 }
 
-export async function saveMessage(args: {
+export type SaveMessageArgs = {
   companyExternalId: string;
   role: "user" | "assistant" | "system";
   content: string;
   resultJson?: unknown;
   taskId?: string;
-}) {
+};
+
+export async function saveMessage(args: SaveMessageArgs) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   // Validate inputs
@@ -39,18 +70,17 @@ export async function saveMessage(args: {
     taskId: args.taskId ? z.string().uuid().parse(args.taskId) : null,
   } as const;
 
-  const [inserted] = await db
-    .insert(messages)
-    .values({
-      companyExternalId: payload.companyExternalId,
-      ownerUserId: userId,
-      role: payload.role,
-      content: payload.content,
-      resultJson: payload.resultJson as any,
-      taskId: (payload.taskId as any) ?? null,
-    })
-    .returning();
-  return inserted;
+  const values: MessageInsert = {
+    companyExternalId: payload.companyExternalId,
+    ownerUserId: userId,
+    role: payload.role,
+    content: payload.content,
+    resultJson: payload.resultJson,
+    taskId: payload.taskId,
+  };
+
+  const [inserted] = await db.insert(messages).values(values).returning();
+  return toStoredMessage(inserted);
 }
 
 export async function listMessagesForCustomer(args: {
@@ -61,20 +91,20 @@ export async function listMessagesForCustomer(args: {
   if (!userId) throw new Error("Unauthorized");
   const companyExternalId = z.string().min(1).parse(args.companyExternalId);
   const limit = args.limit && args.limit > 0 ? Math.min(args.limit, 500) : 200;
-  const rows = await db
+  const rows: MessageRow[] = await db
     .select()
     .from(messages)
     .where(
       and(
         eq(messages.ownerUserId, userId),
         eq(messages.companyExternalId, companyExternalId),
-        eq(messages.hidden as any, false as any)
+        eq(messages.hidden, false)
       )
     )
     .orderBy(desc(messages.createdAt))
     .limit(limit);
   // Return ascending chronological order for UI
-  return rows.reverse();
+  return rows.reverse().map(toStoredMessage);
 }
 
 export async function hideMessage(args: { id: string }) {
@@ -83,8 +113,8 @@ export async function hideMessage(args: { id: string }) {
   const id = z.string().min(1).parse(args.id);
   await db
     .update(messages)
-    .set({ hidden: true as any })
-    .where(and(eq(messages.id, id as any), eq(messages.ownerUserId, userId)));
+    .set({ hidden: true })
+    .where(and(eq(messages.id, id), eq(messages.ownerUserId, userId)));
   return { ok: true } as const;
 }
 
@@ -98,14 +128,14 @@ export async function hideTask(args: {
   const taskId = z.string().min(1).parse(args.taskId);
   await db
     .update(messages)
-    .set({ hidden: true as any })
+    .set({ hidden: true })
     .where(
       and(
         eq(messages.ownerUserId, userId),
         eq(messages.companyExternalId, companyExternalId),
         // Hide by task id if present, otherwise hide by message id fallback
         // This covers legacy rows without task_id
-        or(eq(messages.taskId as any, taskId as any), eq(messages.id as any, taskId as any))
+        or(eq(messages.taskId, taskId), eq(messages.id, taskId))
       )
     );
   return { ok: true } as const;
