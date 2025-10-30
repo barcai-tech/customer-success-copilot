@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { X, Home, BookOpen } from "lucide-react";
+import { X, Home, Table } from "lucide-react";
 import { Button } from "@/src/components/ui/button";
 import { cn } from "@/src/lib/utils";
 
@@ -14,13 +14,13 @@ interface MobileMenuProps {
 const navItems = [
   {
     href: "/",
-    label: "Home",
+    label: "Copilot",
     icon: Home,
   },
   {
-    href: "/docs",
-    label: "Docs",
-    icon: BookOpen,
+    href: "/dashboard",
+    label: "Dashboard",
+    icon: Table,
   },
 ];
 
@@ -30,7 +30,7 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 bg-background bg-opacity-50 text-foreground z-10 flex flex-col h-screen">
+    <div className="fixed inset-0 bg-background bg-opacity-50 text-foreground z-40 flex flex-col h-screen">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <Button
           variant="outline"

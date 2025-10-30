@@ -24,7 +24,7 @@ export function EmailDraftCard({ email }: EmailDraftCardProps) {
   };
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="rounded-lg border bg-card p-3 sm:p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Mail className="h-5 w-5 text-primary" />
@@ -78,7 +78,7 @@ export function EmailDraftCard({ email }: EmailDraftCardProps) {
               {copiedField === "body" ? "✓ Copied" : "Copy"}
             </button>
           </div>
-          <pre className="whitespace-pre-wrap text-sm leading-relaxed p-4 rounded-md bg-muted border">
+          <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed p-3 sm:p-4 rounded-md bg-muted border overflow-x-hidden">
             {email.body}
           </pre>
         </div>

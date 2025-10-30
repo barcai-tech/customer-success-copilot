@@ -23,7 +23,7 @@ export function ActionItems({
   if (!isLoading && !summary && !actions?.length && !notes) return null;
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
+    <div className="rounded-lg border bg-card p-3 sm:p-6 space-y-4">
       <div className="flex items-center gap-2">
         <ListTodo className="h-5 w-5 text-primary" />
         <h3 className="font-semibold">Summary & Actions</h3>

@@ -7,12 +7,19 @@
   box-sizing: border-box;
 }
 
-html,
+html {
+  width: 100%;
+  height: 100dvh;
+  max-width: 100vw;
+  overflow: hidden;
+}
+
 body {
   width: 100%;
   height: 100%;
   max-width: 100vw;
-  overflow-x: hidden;
+  overflow: hidden;
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
 }
 
 @theme inline {
@@ -202,5 +209,102 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer components {
+  /* Mobile-first utility components */
+  .mobile-header {
+    @apply flex items-center justify-between h-16 px-4 sm:px-6 py-3;
+  }
+
+  .mobile-container {
+    @apply mx-auto w-full max-w-2xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .mobile-panel {
+    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
+  }
+
+  .mobile-card {
+    @apply flex flex-col gap-3 p-3 sm:p-4;
+  }
+
+  .mobile-list {
+    @apply space-y-2 sm:space-y-3;
+  }
+
+  .mobile-list-item {
+    @apply flex items-start gap-3 p-2 sm:p-3 rounded-md hover:bg-muted/50 transition-colors;
+  }
+
+  .mobile-button-group {
+    @apply flex flex-col gap-2 sm:flex-row sm:gap-3 w-full;
+  }
+
+  .mobile-button-full {
+    @apply w-full sm:w-auto px-3 py-2 sm:py-2.5;
+  }
+
+  .mobile-input {
+    @apply w-full px-3 py-2 sm:py-2.5 rounded-md border border-input bg-background text-sm font-medium placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .mobile-sheet {
+    @apply fixed inset-0 z-50 bg-background/80 backdrop-blur-sm animate-in fade-in-0;
+  }
+
+  .mobile-sheet-content {
+    @apply fixed left-0 top-0 z-50 h-full w-full max-w-xs border-r bg-background shadow-lg duration-200 data-[state=open]:slide-in-from-left-full data-[state=closed]:slide-out-to-left-full;
+  }
+
+  .mobile-text-truncate {
+    @apply truncate;
+  }
+
+  .mobile-text-clamp-2 {
+    @apply line-clamp-2;
+  }
+
+  .mobile-text-clamp-3 {
+    @apply line-clamp-3;
+  }
+
+  .mobile-safe-area {
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+
+  .mobile-focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background;
+  }
+
+  /* Responsive spacing helpers */
+  .mobile-gap-2 {
+    @apply gap-2 sm:gap-3;
+  }
+
+  .mobile-gap-3 {
+    @apply gap-3 sm:gap-4;
+  }
+
+  .mobile-gap-4 {
+    @apply gap-4 sm:gap-6;
+  }
+
+  /* Responsive padding helpers */
+  .mobile-p-3 {
+    @apply p-3 sm:p-4;
+  }
+
+  .mobile-p-4 {
+    @apply p-4 sm:p-6;
+  }
+
+  .mobile-px-3 {
+    @apply px-3 sm:px-4;
+  }
+
+  .mobile-px-4 {
+    @apply px-4 sm:px-6;
   }
 }
