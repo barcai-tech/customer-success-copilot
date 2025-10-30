@@ -441,27 +441,50 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         </div>
       </SignedOut>
 
-      {/* Main content area with sidebar */}
-      <div className="flex flex-col md:flex-row flex-1 md:gap-6 overflow-hidden min-h-0">
-        {/* Presets Section - In flow on mobile, sidebar on desktop */}
+      {/* Main container with sidebar and chat area */}
+      <div className="flex flex-1 overflow-hidden min-h-0 relative">
+        {/* Mobile Backdrop - Click to close sidebar */}
         {isSidebarOpen && (
-          <aside className="w-full md:w-80 shrink-0 border-b md:border-b-0 md:border-l border-border bg-muted/30 overflow-y-auto md:order-2">
-            <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-              {/* Customer Selection */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-foreground">
-                  Customer
-                </h3>
-                <CustomerCombobox />
-              </div>
-
-              {/* Quick Actions */}
-              <QuickActions />
-            </div>
-          </aside>
+          <div
+            className="absolute inset-0 z-20 bg-black/40 md:hidden"
+            onClick={() => setIsSidebarOpen(false)}
+          />
         )}
 
-        {/* Main Chat Area */}
+        {/* Sidebar - Slides over on mobile, static on desktop */}
+        <aside
+          className={`${
+            isSidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"
+          } absolute md:relative right-0 top-0 bottom-0 w-80 max-w-[calc(100vw-1rem)] md:max-w-none md:w-80 border-l border-border bg-background md:bg-muted/30 overflow-y-auto transition-transform duration-200 ease-in-out md:order-2 md:shrink-0 z-30 md:z-auto flex flex-col`}
+        >
+          {/* Sidebar Header with Close Button (Mobile only) */}
+          <div className="flex justify-end items-center p-4 md:p-6 shrink-0 border-b border-border md:hidden">
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(false)}
+              className="h-8 w-8 flex items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-muted"
+              aria-label="Hide presets"
+            >
+              <span className="text-xs">×</span>
+            </button>
+          </div>
+
+          {/* Sidebar Content */}
+          <div className="p-4 md:p-6 space-y-4 md:space-y-6 flex flex-col overflow-y-auto flex-1">
+            {/* Customer Selection */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground">
+                Customer
+              </h3>
+              <CustomerCombobox />
+            </div>
+
+            {/* Quick Actions */}
+            <QuickActions />
+          </div>
+        </aside>
+
+        {/* Main Chat Area - Flex column with MessageList and Input */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden md:order-1">
           {/* Empty State when no customers */}
           {customers.length === 0 ? (
@@ -491,61 +514,63 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
             </div>
           ) : (
             <>
-              {/* Messages - Independent scroll container */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 lg:px-8">
-                <MessageList
-                  onHide={async ({ id: taskId, assistantId }) => {
-                    try {
-                      if (!selectedCustomer?.id) return;
-                      await actions.hideTask({
-                        companyExternalId: selectedCustomer.id,
-                        taskId,
-                      });
-                      if (assistantId && assistantId !== taskId) {
-                        // Hide legacy assistant message without taskId
-                        const { hideMessage } = await import(
-                          "@/app/db-actions"
+              {/* Messages - Independent scroll container with sticky toggle button */}
+              <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
+                {/* Sidebar Toggle Button - Sticky at top, mobile only */}
+                <div className="sticky top-0 z-50 md:hidden -mx-4 px-4 py-3 mb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
+                  <button
+                    type="button"
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-muted"
+                    aria-label={isSidebarOpen ? "Hide presets" : "Show presets"}
+                  >
+                    <span className="text-xs">
+                      {isSidebarOpen ? "×" : "☰"}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Message List */}
+                <div className="px-4 md:px-6 lg:px-8">
+                  <MessageList
+                    onHide={async ({ id: taskId, assistantId }) => {
+                      try {
+                        if (!selectedCustomer?.id) return;
+                        await actions.hideTask({
+                          companyExternalId: selectedCustomer.id,
+                          taskId,
+                        });
+                        if (assistantId && assistantId !== taskId) {
+                          // Hide legacy assistant message without taskId
+                          const { hideMessage } = await import(
+                            "@/app/db-actions"
+                          );
+                          await hideMessage({ id: assistantId });
+                        }
+                        // Remove all messages for this task from the store
+                        setMessages(
+                          useCopilotStore
+                            .getState()
+                            .messages.filter(
+                              (m) =>
+                                m.taskId !== taskId &&
+                                m.id !== taskId &&
+                                m.id !== assistantId
+                            )
                         );
-                        await hideMessage({ id: assistantId });
-                      }
-                      // Remove all messages for this task from the store
-                      setMessages(
-                        useCopilotStore
-                          .getState()
-                          .messages.filter(
-                            (m) =>
-                              m.taskId !== taskId &&
-                              m.id !== taskId &&
-                              m.id !== assistantId
-                          )
-                      );
-                    } catch {}
-                  }}
-                />
+                      } catch {}
+                    }}
+                  />
+                </div>
               </div>
 
-              {/* Input - Fixed at bottom */}
+              {/* Input - Fixed at bottom, outside scroll area */}
               <div className="shrink-0 border-t border-border bg-background px-4 md:px-6 lg:px-8 py-4">
                 <CopilotInput onSubmit={handleSubmit} />
               </div>
             </>
           )}
         </div>
-
-        {/* Sidebar Toggle - Mobile: Hamburger menu, Desktop: Collapse arrows */}
-        <button
-          type="button"
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="fixed right-4 top-20 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-muted"
-          aria-label={isSidebarOpen ? "Hide presets" : "Show presets"}
-        >
-          {/* Mobile icons */}
-          <span className="text-xs md:hidden">{isSidebarOpen ? "×" : "☰"}</span>
-          {/* Desktop icons */}
-          <span className="text-xs hidden md:inline">
-            {isSidebarOpen ? "→" : "←"}
-          </span>
-        </button>
       </div>
     </div>
   );

@@ -35,6 +35,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Customer Success Copilot",
   description: "AI-powered customer success intelligence platform",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+    viewportFit: "cover",
+  },
 };
 
 export default function RootLayout({
@@ -50,7 +57,7 @@ export default function RootLayout({
     >
       <body
         suppressHydrationWarning
-        className="flex flex-col min-h-screen w-full"
+        className="flex flex-col h-full w-full overflow-hidden"
       >
         <Providers>
           <Header />
