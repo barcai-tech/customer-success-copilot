@@ -58,34 +58,36 @@ export function CopilotInput({
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
-      <div className="relative flex items-end gap-2 rounded-lg border border-border bg-background p-3 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
-        <textarea
-          ref={textareaRef}
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          disabled={isDisabled}
-          rows={1}
-          className="flex-1 resize-none bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 max-h-32 overflow-y-auto"
-        />
-        <Button
-          type="submit"
-          size="sm"
-          disabled={isDisabled || !inputValue.trim()}
-          className="shrink-0"
-        >
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
-          <span className="sr-only">Send message</span>
-        </Button>
+      <div className="gradient-border-wrapper">
+        <div className="relative flex items-end gap-2 rounded-lg border border-border bg-background p-3 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+          <textarea
+            ref={textareaRef}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={isDisabled}
+            rows={1}
+            className="flex-1 resize-none bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 max-h-32 overflow-y-auto"
+          />
+          <Button
+            type="submit"
+            size="sm"
+            disabled={isDisabled || !inputValue.trim()}
+            className="shrink-0"
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+            <span className="sr-only">Send message</span>
+          </Button>
+        </div>
       </div>
 
       {/* Helpful hints */}
-      <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+      <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
         <span>Try:</span>
         <button
           type="button"

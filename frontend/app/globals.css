@@ -316,3 +316,55 @@ body {
     @apply px-4 sm:px-6;
   }
 }
+
+/* Animated gradient border styles */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-border-wrapper {
+  position: relative;
+  border-radius: 0.5rem;
+  isolation: isolate;
+}
+
+.gradient-border-wrapper::before,
+.gradient-border-wrapper::after {
+  content: "";
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: linear-gradient(
+    90deg,
+    #10b981,
+    #06b6d4,
+    #3b82f6,
+    #8b5cf6,
+    #10b981
+  );
+  background-size: 300% 300%;
+  border-radius: 0.5rem;
+  z-index: -1;
+  animation: gradient-shift 6s ease infinite;
+  pointer-events: none;
+}
+
+.gradient-border-wrapper::after {
+  filter: blur(8px);
+  opacity: 0.6;
+}
+
+.gradient-border-wrapper > * {
+  position: relative;
+  z-index: 1;
+}

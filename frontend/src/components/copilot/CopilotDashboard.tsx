@@ -419,7 +419,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         setTimeout(() => {
           if (!quickActionAppliedRef.current) {
             quickActionAppliedRef.current = true;
-            handleSubmit(prompt, customer.id);
+            handleSubmitWithSidebarClose(prompt, customer.id);
           }
         }, 100);
 
@@ -427,7 +427,13 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         window.history.replaceState({}, "", window.location.pathname);
       }
     }
-  }, [searchParams, customers, setCustomer, setInputValue, handleSubmit]);
+  }, [
+    searchParams,
+    customers,
+    setCustomer,
+    setInputValue,
+    handleSubmitWithSidebarClose,
+  ]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -454,7 +460,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
       </SignedOut>
 
       {/* Main container - flex row with chat area + sidebar */}
-      <div className="flex flex-1 overflow-hidden min-h-0 relative">
+      <div className="flex flex-1 overflow-hidden min-h-0 relative border-x">
         <div className="absolute inset-0 pointer-events-none z-50">
           {/* <div className="flex justify-end p-3"> */}
           <Button
@@ -574,7 +580,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
               </div>
 
               {/* Input - Fixed at bottom, outside scroll area and sidebar overlay */}
-              <div className="shrink-0 border-t border-border bg-background px-4 md:px-6 lg:px-8 py-4">
+              <div className="shrink-0 border-t border-border bg-background p-4 md:p-6 lg:p-8">
                 <CopilotInput onSubmit={handleSubmitWithSidebarClose} />
               </div>
             </>
