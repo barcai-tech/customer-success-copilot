@@ -14,7 +14,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur bg-background/75 border-b border-slate-200/60 dark:border-slate-800/60">
+    <header className="sticky top-0 z-60 backdrop-blur bg-background/75 border-b border-slate-200/60 dark:border-slate-800/60">
       <PageContainer className="h-16 flex items-center justify-between">
         {/* Mobile Menu Button */}
         <Button
@@ -45,7 +45,9 @@ export default function Header() {
           </SignedIn>
           <SignedOut>
             <SignInButton>
-              <Button variant="default" size="sm">Sign in</Button>
+              <Button variant="default" size="sm">
+                Sign in
+              </Button>
             </SignInButton>
           </SignedOut>
         </div>

@@ -8,10 +8,12 @@ import { MessageList } from "./MessageList";
 import { CustomerCombobox } from "./CustomerCombobox";
 import { QuickActions } from "./QuickActions";
 import { useCopilotStore } from "../../store/copilot-store";
+import { generateUUID } from "@/src/lib/uuid";
 import { useCopilotExecutionLogStore } from "../../store/copilot-execution-log-store";
 // import { runLlmPlannerFromPromptAction } from "../../../app/actions";
 import { toast } from "sonner";
-import { Info } from "lucide-react";
+import { Info, Menu, X } from "lucide-react";
+import { Button } from "@/src/components/ui/button";
 import { SignedOut } from "@clerk/nextjs";
 import { useAuth } from "@clerk/nextjs";
 import type { PlannerResult } from "@/src/agent/planner";
@@ -74,13 +76,8 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
 
   const handleSubmit = useCallback(
     async (message: string, customerIdOverride?: string) => {
-      // Add user message
-      const supportsRandomUuid =
-        typeof crypto !== "undefined" &&
-        typeof crypto.randomUUID === "function";
-      const taskId = supportsRandomUuid
-        ? crypto.randomUUID()
-        : Math.random().toString(36).substring(2);
+      // Generate a reliable UUID for tracking this task/message pair
+      const taskId = generateUUID();
       addMessage({
         role: "user",
         content: message,
@@ -234,6 +231,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
           try {
             const data = JSON.parse(ev.data) as PlannerResult &
               Record<string, unknown>;
+            console.log("[Copilot] Final event received", { taskId, data });
             if (
               data.planSource === "heuristic" &&
               typeof data.planHint === "string"
@@ -259,6 +257,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
                 taskId,
               });
             }
+            console.log("[Copilot] Showing success toast for taskId:", taskId);
             toast.success("Plan complete", {
               description:
                 data.planSource === "llm"
@@ -268,6 +267,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
           } catch (e) {
             const msg =
               e instanceof Error ? e.message : "Failed to parse final";
+            console.error("[Copilot] Final event error:", msg, e);
             setError(msg);
           } finally {
             source.close();
@@ -356,6 +356,18 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
     })();
   }, [actions, isSignedIn, selectedCustomer?.id, setMessages]);
 
+  // Wrapper to close sidebar on mobile when submitting
+  const handleSubmitWithSidebarClose = useCallback(
+    async (message: string, customerIdOverride?: string) => {
+      await handleSubmit(message, customerIdOverride);
+      // Close sidebar on mobile (md breakpoint = 768px)
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        setIsSidebarOpen(false);
+      }
+    },
+    [handleSubmit]
+  );
+
   // Clear in-memory chat state when signing out to avoid showing private history
   useEffect(() => {
     if (!isSignedIn) {
@@ -441,27 +453,29 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         </div>
       </SignedOut>
 
-      {/* Main container - flex row with sidebar + chat area */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
-        {/* Desktop Sidebar - visible on md and up */}
-        <aside className="hidden md:flex md:w-80 border-r border-border bg-muted/30 overflow-y-auto flex-col shrink-0">
-          {/* Sidebar Content */}
-          <div className="p-4 md:p-6 space-y-4 md:space-y-6 flex flex-col overflow-y-auto flex-1">
-            {/* Customer Selection */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-foreground">
-                Customer
-              </h3>
-              <CustomerCombobox />
-            </div>
-
-            {/* Quick Actions */}
-            <QuickActions />
-          </div>
-        </aside>
-
+      {/* Main container - flex row with chat area + sidebar */}
+      <div className="flex flex-1 overflow-hidden min-h-0 relative">
+        <div className="absolute inset-0 pointer-events-none z-50">
+          {/* <div className="flex justify-end p-3"> */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            aria-label={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
+            className="pointer-events-auto absolute top-5 right-5 rounded-full border-1 shadow-2xl"
+          >
+            {isSidebarOpen ? (
+              <X className="h-4 w-4" />
+            ) : (
+              <Menu className="h-4 w-4" />
+            )}
+          </Button>
+          {/* </div> */}
+        </div>
         {/* Main Chat Area - Flex column with MessageList (scrollable) and Input (fixed) */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex flex-col min-h-0 overflow-hidden transition-all duration-200 ease-in-out flex-1 relative">
+          {/* Full-width overlay container for sidebar toggle - absolute positioned relative to Main Chat Area */}
+
           {/* Empty State when no customers */}
           {customers.length === 0 ? (
             <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
@@ -490,8 +504,8 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
             </div>
           ) : (
             <>
-              {/* Messages Container - Independent scroll area with sidebar overlay on mobile */}
-              <div className="flex-1 overflow-y-auto overflow-x-hidden relative">
+              {/* Messages Container - flex column with sidebar overlay on mobile */}
+              <div className="flex-1 flex flex-col overflow-hidden relative">
                 {/* Mobile Sidebar Backdrop - Click to close sidebar */}
                 {isSidebarOpen && (
                   <div
@@ -504,24 +518,13 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
                 <aside
                   className={`${
                     isSidebarOpen ? "translate-x-0" : "translate-x-full"
-                  } absolute md:hidden right-0 top-0 bottom-0 w-80 max-w-[calc(100vw-1rem)] border-l border-border bg-background overflow-y-auto transition-transform duration-200 ease-in-out z-40 flex flex-col`}
+                  } absolute md:hidden right-0 top-0 bottom-0 w-80 max-w-[calc(100vw-1rem)] border-l border-border bg-background transition-transform duration-200 ease-in-out z-40 flex flex-col`}
+                  style={{ overflow: "hidden" }}
                 >
-                  {/* Sidebar Header with Close Button (Mobile only) */}
-                  <div className="flex justify-end items-center p-4 shrink-0 border-b border-border">
-                    <button
-                      type="button"
-                      onClick={() => setIsSidebarOpen(false)}
-                      className="h-8 w-8 flex items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-muted"
-                      aria-label="Hide sidebar"
-                    >
-                      <span className="text-xs">×</span>
-                    </button>
-                  </div>
-
-                  {/* Sidebar Content */}
+                  {/* Sidebar Content - scrollable */}
                   <div className="p-4 space-y-4 flex flex-col overflow-y-auto flex-1">
                     {/* Customer Selection */}
-                    <div className="space-y-3">
+                    <div className="space-y-3 mt-5">
                       <h3 className="text-sm font-semibold text-foreground">
                         Customer
                       </h3>
@@ -533,59 +536,71 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
                   </div>
                 </aside>
 
-                {/* Sidebar Toggle Button - Sticky at top, mobile only */}
-                <div className="sticky top-0 z-50 md:hidden -mx-4 px-4 py-3 mb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
-                  <button
-                    type="button"
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-muted"
-                    aria-label={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
-                  >
-                    <span className="text-xs">{isSidebarOpen ? "×" : "☰"}</span>
-                  </button>
-                </div>
-
-                {/* Message List */}
-                <div className="px-4 md:px-6 lg:px-8">
-                  <MessageList
-                    onHide={async ({ id: taskId, assistantId }) => {
-                      try {
-                        if (!selectedCustomer?.id) return;
-                        await actions.hideTask({
-                          companyExternalId: selectedCustomer.id,
-                          taskId,
-                        });
-                        if (assistantId && assistantId !== taskId) {
-                          // Hide legacy assistant message without taskId
-                          const { hideMessage } = await import(
-                            "@/app/db-actions"
+                {/* Scrollable messages area */}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden pt-16">
+                  {/* Message List */}
+                  <div className="px-4 md:px-6 lg:px-8">
+                    <MessageList
+                      onHide={async ({ id: taskId, assistantId }) => {
+                        try {
+                          if (!selectedCustomer?.id) return;
+                          await actions.hideTask({
+                            companyExternalId: selectedCustomer.id,
+                            taskId,
+                          });
+                          if (assistantId && assistantId !== taskId) {
+                            // Hide legacy assistant message without taskId
+                            const { hideMessage } = await import(
+                              "@/app/db-actions"
+                            );
+                            await hideMessage({ id: assistantId });
+                          }
+                          // Remove all messages for this task from the store
+                          setMessages(
+                            useCopilotStore
+                              .getState()
+                              .messages.filter(
+                                (m) =>
+                                  m.taskId !== taskId &&
+                                  m.id !== taskId &&
+                                  m.id !== assistantId
+                              )
                           );
-                          await hideMessage({ id: assistantId });
-                        }
-                        // Remove all messages for this task from the store
-                        setMessages(
-                          useCopilotStore
-                            .getState()
-                            .messages.filter(
-                              (m) =>
-                                m.taskId !== taskId &&
-                                m.id !== taskId &&
-                                m.id !== assistantId
-                            )
-                        );
-                      } catch {}
-                    }}
-                  />
+                        } catch {}
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Input - Fixed at bottom, outside scroll area and sidebar overlay */}
               <div className="shrink-0 border-t border-border bg-background px-4 md:px-6 lg:px-8 py-4">
-                <CopilotInput onSubmit={handleSubmit} />
+                <CopilotInput onSubmit={handleSubmitWithSidebarClose} />
               </div>
             </>
           )}
         </div>
+
+        {/* Desktop Sidebar - visible on md and up, right side, collapsible */}
+        <aside
+          className={`${
+            isSidebarOpen ? "w-80" : "w-0"
+          } hidden md:flex border-l border-border bg-background transition-all duration-200 ease-in-out z-40 flex-col shrink-0 overflow-hidden`}
+        >
+          {/* Sidebar Content - scrollable */}
+          <div className="p-4 md:p-6 space-y-4 md:space-y-6 flex flex-col overflow-y-auto flex-1">
+            {/* Customer Selection */}
+            <div className="space-y-3 mt-4">
+              <h3 className="text-sm font-semibold text-foreground">
+                Customer
+              </h3>
+              <CustomerCombobox />
+            </div>
+
+            {/* Quick Actions */}
+            <QuickActions />
+          </div>
+        </aside>
       </div>
     </div>
   );
