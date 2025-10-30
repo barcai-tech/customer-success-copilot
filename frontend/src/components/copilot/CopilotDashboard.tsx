@@ -454,7 +454,9 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         {/* Sidebar - Slides over on mobile, static on desktop */}
         <aside
           className={`${
-            isSidebarOpen ? "translate-x-0" : "translate-x-full md:translate-x-0"
+            isSidebarOpen
+              ? "translate-x-0"
+              : "translate-x-full md:translate-x-0"
           } absolute md:relative right-0 top-0 bottom-0 w-80 max-w-[calc(100vw-1rem)] md:max-w-none md:w-80 border-l border-border bg-background md:bg-muted/30 overflow-y-auto transition-transform duration-200 ease-in-out md:order-2 md:shrink-0 z-30 md:z-auto flex flex-col`}
         >
           {/* Sidebar Header with Close Button (Mobile only) */}
@@ -524,9 +526,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
                     className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background shadow-sm hover:bg-muted"
                     aria-label={isSidebarOpen ? "Hide presets" : "Show presets"}
                   >
-                    <span className="text-xs">
-                      {isSidebarOpen ? "×" : "☰"}
-                    </span>
+                    <span className="text-xs">{isSidebarOpen ? "×" : "☰"}</span>
                   </button>
                 </div>
 
