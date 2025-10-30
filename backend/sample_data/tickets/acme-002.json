@@ -1,8 +1,0 @@
-{
-  "openTickets": 6,
-  "recentTickets": [
-    { "id": "T-910", "severity": "high" },
-    { "id": "T-911", "severity": "medium" },
-    { "id": "T-912", "severity": "low" }
-  ]
-}

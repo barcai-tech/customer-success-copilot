@@ -119,14 +119,58 @@ python dev_server.py --port 8787
 
 Then set `BACKEND_BASE_URL=http://127.0.0.1:8787` in the frontend `.env.local`.
 
+Backend uses Postgres via `pg8000`. For local dev, keep `DATABASE_URL` in your `.env` files; do not include `channel_binding=require` (pg8000 does not support it).
+
+2b) Backend tools (AWS deploy)
+
+We deploy six Python Lambdas behind API Gateway with AWS SAM. Secrets are read at runtime from SSM Parameter Store; no dynamic secure references are baked into the template.
+
+Prepare SSM parameters (SecureString):
+
+- HMAC secret: `/copilot/hmac/v1` (dev) and `/copilot/prod/hmac/v1` (prod)
+- Database URL: `/copilot/database/url` (dev) and `/copilot/prod/database/url` (prod)
+
+Notes
+
+- The Database URL should include `sslmode=require` and must not include `channel_binding=require`.
+- The frontend `HMAC_SECRET` value must exactly match the HMAC parameter the Lambdas read.
+
+Deploy commands (from `infra/`):
+
+Dev stage
+
+```
+sam build --template-file sam-template.yaml --config-env default --region ap-southeast-1 --profile cs-copilot
+sam deploy --config-env default --region ap-southeast-1 --profile cs-copilot
+```
+
+Prod stage
+
+```
+sam build --template-file sam-template.yaml --config-env prod --region ap-southeast-1 --profile cs-copilot
+sam deploy --config-env prod --region ap-southeast-1 --profile cs-copilot
+
+Optional monitoring
+
+- You can enable basic CloudWatch monitoring via parameters. By default it is off.
+- To enable in a given config env, set in `infra/samconfig.toml`:
+
+```
+EnableMonitoring="true" LogRetentionDays="14" AlarmErrorsThreshold="1" AlarmEvaluationPeriods="1" AlarmPeriodSeconds="300" AlarmTopicArn="arn:aws:sns:..."
+```
+- This creates log groups with retention and simple “Lambda Errors” alarms per function. Remove or set `EnableMonitoring="false"` to turn it off later.
+```
+
+The stage name controls the base path of the API URL (`/dev`, `/prod`). You can also configure a custom API Gateway domain and base path mapping if you want to remove the stage path segment.
+
 3) Database
 
-- Provide the Neon `DATABASE_URL` in both frontend and backend environments
+- Provide the Neon `DATABASE_URL` to the frontend environment and to SSM for the backend (`/copilot/.../database/url`).
 - Apply Drizzle migrations from the frontend:
 
 ```
 cd frontend
-pnpm db:generate && pnpm db:migrate
+    pnpm db:generate && pnpm db:migrate
 ```
 
 Quick endpoints
@@ -185,3 +229,32 @@ LICENSE
 
 MIT. See `LICENSE`.
 
+---
+
+## Vercel Deployment
+
+The frontend is a Next.js app designed for Vercel. Analytics and Speed Insights are integrated and enabled automatically in production builds.
+
+Steps
+
+1) Create a Vercel project and import `frontend/` as the root.
+2) Set Production and Preview environment variables in Vercel (Project Settings → Environment Variables):
+
+- `BACKEND_BASE_URL` — e.g., `https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/prod` or your custom domain
+- `HMAC_SECRET` — must match `/copilot/prod/hmac/v1`
+- `DATABASE_URL` — Neon connection string with `sslmode=require` (no `channel_binding=require`)
+- `OPENAI_API_KEY` and optional `OPENAI_MODEL`
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
+- Optional tuning: `ENABLE_TOOL_RETRY`, `TOOL_RETRY_CODES`, `TOOL_RETRY_DELAY_MS`
+
+3) Deploy via Vercel UI or CLI (`vercel` from the repo root and select `frontend/`).
+
+Analytics & Speed Insights
+
+- Packages: `@vercel/analytics`, `@vercel/speed-insights` (already in `package.json`).
+- Components are added in `frontend/app/layout.tsx`; they only collect data in Vercel Production/Preview.
+
+Notes
+
+- Keep different env sets for Preview vs Production (Vercel supports scoped variables).
+- Ensure CORS/AllowedOrigin for the backend includes your Vercel domain if you call tools from the browser (the app uses server actions, so it normally does not).

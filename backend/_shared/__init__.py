@@ -2,6 +2,5 @@ __all__ = [
     "hmac_auth",
     "responses",
     "models",
-    "s3util",
     "utils",
 ]

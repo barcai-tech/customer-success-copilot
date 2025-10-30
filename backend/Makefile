@@ -21,7 +21,7 @@ clean:
 
 .PHONY: run smoke
 
-# Run a single tool locally (uses sample_data fallback)
+# Run a single tool locally
 # Usage: make run TOOL=get_customer_usage CID=acme-001 PARAMS='{"periodDays":30}'
 run:
 	@if [ -z "$(TOOL)" ]; then echo "Set TOOL=<toolname> (e.g., get_customer_usage)"; exit 1; fi

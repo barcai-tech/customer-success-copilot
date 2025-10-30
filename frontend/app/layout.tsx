@@ -5,6 +5,8 @@ import Header from "@/src/components/Header";
 import Footer from "@/src/components/Footer";
 import Providers from "@/src/components/Providers";
 import { Toaster } from "@/src/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 // Primary font - Inter (used for body text)
 const inter = Inter({
@@ -61,6 +63,10 @@ export default function RootLayout({
 
           {/* Toast Notifications */}
           <Toaster position="top-center" />
+
+          {/* Vercel Analytics and Speed Insights (enabled automatically in production) */}
+          <Analytics />
+          <SpeedInsights />
         </Providers>
       </body>
     </html>
