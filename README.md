@@ -175,8 +175,8 @@ cd frontend
 
 Quick endpoints
 
-- `GET /api/db/health` — verifies DB connection and schema presence
-- `POST /api/db/seed-global` — seeds demo customers as `ownerUserId=public`
+- `POST /api/copilot/stream` — streaming LLM-planned copilot responses with tool execution
+- `POST /api/eval/stream` — streaming evaluation session execution with test results
 
 ---
 

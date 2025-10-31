@@ -3,7 +3,6 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/api/copilot/stream",
-  "/api/db/seed-global",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
