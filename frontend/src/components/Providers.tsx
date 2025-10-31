@@ -8,7 +8,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   // Debug: Check Clerk configuration and suppress development warnings
   useEffect(() => {
     const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-    console.log("Clerk Publishable Key available:", !!publishableKey);
+    if (process.env.NODE_ENV === "development") {
+      console.log("Clerk Publishable Key available:", !!publishableKey);
+    }
     if (!publishableKey) {
       console.error("ERROR: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set!");
     }

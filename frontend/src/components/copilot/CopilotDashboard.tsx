@@ -234,16 +234,16 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
           try {
             const data = JSON.parse(ev.data) as PlannerResult &
               Record<string, unknown>;
-            console.log("[Copilot] Final event received", { taskId, data });
+            if (process.env.NODE_ENV === "development") {
+              console.log("[Copilot] Final event received", { taskId, data });
+            }
             if (
               data.planSource === "heuristic" &&
               typeof data.planHint === "string"
             ) {
               toast("LLM planner fallback", { description: data.planHint });
             }
-            useCopilotStore
-              .getState()
-              .finalizeActiveAssistant(data);
+            useCopilotStore.getState().finalizeActiveAssistant(data);
             // Persist assistant message with final result
             const companyId3 =
               customerIdOverride ||
@@ -257,7 +257,9 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
                 taskId,
               });
             }
-            console.log("[Copilot] Showing success toast for taskId:", taskId);
+            if (process.env.NODE_ENV === "development") {
+              console.log("[Copilot] Showing success toast for taskId:", taskId);
+            }
             toast.success("Plan complete", {
               description:
                 data.planSource === "llm"
