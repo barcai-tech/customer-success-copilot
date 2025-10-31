@@ -53,10 +53,10 @@ frontend/drizzle/
 # SAM build artifacts
 infra/.aws-sam/
 
-# Docs archives
-docs/*.zip
-docs/**/*.zip
-docs/_preview/
+# Docs and notebooks (training materials, not production code)
+docs/
+*.ipynb
+.ipynb_checkpoints/
 
 # Vendored Lambda layer dependencies (rebuilt locally at deploy time)
 infra/layers/common/python/**
