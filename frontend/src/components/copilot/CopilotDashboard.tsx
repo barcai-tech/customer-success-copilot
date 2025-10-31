@@ -61,6 +61,7 @@ interface CopilotDashboardProps {
 
 export function CopilotDashboard({ actions }: CopilotDashboardProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const searchParams = useSearchParams();
 
   const selectedCustomer = useCopilotStore((state) => state.selectedCustomer);
@@ -76,6 +77,44 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
   // const setResult = useCopilotStore((state) => state.setResult);
   const setError = useCopilotStore((state) => state.setError);
   const quickActionAppliedRef = useRef(false);
+
+  // Initialize sidebar state based on device and localStorage
+  useEffect(() => {
+    const handleResize = () => {
+      const isMobileView = window.innerWidth < 768; // md breakpoint
+      setIsMobile(isMobileView);
+
+      // Mobile: always close on load/resize
+      if (isMobileView) {
+        setIsSidebarOpen(false);
+      } else {
+        // Desktop: restore from localStorage or default to open
+        const saved = localStorage.getItem("copilot-sidebar-open");
+        setIsSidebarOpen(saved ? JSON.parse(saved) : true);
+      }
+    };
+
+    // Run on mount
+    handleResize();
+
+    // Listen for window resize
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Persist sidebar state to localStorage when changed (desktop only)
+  useEffect(() => {
+    if (!isMobile) {
+      localStorage.setItem(
+        "copilot-sidebar-open",
+        JSON.stringify(isSidebarOpen)
+      );
+    }
+  }, [isSidebarOpen, isMobile]);
+
+  const handleSetSidebarOpen = useCallback((state: boolean) => {
+    setIsSidebarOpen(state);
+  }, []);
 
   const handleSubmit = useCallback(
     async (message: string, customerIdOverride?: string) => {
@@ -359,18 +398,6 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
     })();
   }, [actions, isSignedIn, setMessages]);
 
-  // Wrapper to close sidebar on mobile when submitting
-  const handleSubmitWithSidebarClose = useCallback(
-    async (message: string, customerIdOverride?: string) => {
-      await handleSubmit(message, customerIdOverride);
-      // Close sidebar on mobile (md breakpoint = 768px)
-      if (typeof window !== "undefined" && window.innerWidth < 768) {
-        setIsSidebarOpen(false);
-      }
-    },
-    [handleSubmit]
-  );
-
   // Clear in-memory chat state when signing out to avoid showing private history
   useEffect(() => {
     if (!isSignedIn) {
@@ -422,7 +449,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         setTimeout(() => {
           if (!quickActionAppliedRef.current) {
             quickActionAppliedRef.current = true;
-            handleSubmitWithSidebarClose(prompt, customer.id);
+            handleSubmit(prompt, customer.id);
           }
         }, 100);
 
@@ -430,13 +457,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         window.history.replaceState({}, "", window.location.pathname);
       }
     }
-  }, [
-    searchParams,
-    customers,
-    setCustomer,
-    setInputValue,
-    handleSubmitWithSidebarClose,
-  ]);
+  }, [searchParams, customers, setCustomer, setInputValue, handleSubmit]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -469,7 +490,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            onClick={() => handleSetSidebarOpen(!isSidebarOpen)}
             aria-label={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
             className="pointer-events-auto absolute top-5 right-5 rounded-full border shadow-2xl"
           >
@@ -519,7 +540,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
                 {isSidebarOpen && (
                   <div
                     className="absolute inset-0 z-20 bg-black/40 md:hidden"
-                    onClick={() => setIsSidebarOpen(false)}
+                    onClick={() => handleSetSidebarOpen(false)}
                   />
                 )}
 
@@ -584,7 +605,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
 
               {/* Input - Fixed at bottom, outside scroll area and sidebar overlay */}
               <div className="shrink-0 border-t border-border bg-background p-4 md:p-6 lg:p-8">
-                <CopilotInput onSubmit={handleSubmitWithSidebarClose} />
+                <CopilotInput onSubmit={handleSubmit} />
               </div>
             </>
           )}
