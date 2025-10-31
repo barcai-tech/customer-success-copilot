@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { db } from "@/src/db/client";
 import {
@@ -594,4 +594,73 @@ export async function upsertUsageAction(input: {
       set: { sparkline: validated.sparkline, avgDailyUsers: avg, trend },
     });
   revalidatePath("/dashboard");
+}
+
+export async function seedGlobalCustomersAsAdmin(): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+
+  // Check admin role
+  const user = await currentUser();
+  if (user?.privateMetadata?.role !== "admin") {
+    throw new Error("Only admins can seed global customers");
+  }
+
+  // Seed companies
+  await db
+    .insert(companies)
+    .values(
+      GLOBAL_COMPANIES.map((c) => ({
+        externalId: c.id,
+        name: c.name,
+        ownerUserId: userId,
+      }))
+    )
+    .onConflictDoNothing();
+
+  // Seed contracts
+  await db
+    .insert(contracts)
+    .values(
+      Object.entries(GLOBAL_CONTRACTS).map(([companyId, data]) => ({
+        companyExternalId: companyId,
+        ownerUserId: userId,
+        arr: data.arr,
+        renewalDate: new Date(data.renewalDate),
+      }))
+    )
+    .onConflictDoNothing();
+
+  // Seed tickets
+  await db
+    .insert(ticketSummaries)
+    .values(
+      Object.entries(GLOBAL_TICKETS).map(([companyId, data]) => ({
+        companyExternalId: companyId,
+        ownerUserId: userId,
+        openTickets: data.openTickets,
+        recentTickets: data.recentTickets,
+      }))
+    )
+    .onConflictDoNothing();
+
+  // Seed usage
+  await db
+    .insert(usageSummaries)
+    .values(
+      Object.entries(GLOBAL_USAGE).map(([companyId, data]) => ({
+        companyExternalId: companyId,
+        ownerUserId: userId,
+        sparkline: data.sparkline,
+        avgDailyUsers: data.avgDailyUsers,
+        trend: data.trend,
+      }))
+    )
+    .onConflictDoNothing();
+
+  revalidatePath("/dashboard");
+  return { ok: true };
 }
