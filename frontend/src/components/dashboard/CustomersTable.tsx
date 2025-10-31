@@ -198,7 +198,7 @@ export default function CustomersTable({
   });
 
   return (
-    <div className="space-y-4">
+    <div className="px-6 py-4 space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Customer List</h3>
         <Button onClick={openAddDialog} className="bg-blue-600 hover:bg-blue-700 text-white">
@@ -219,7 +219,7 @@ export default function CustomersTable({
               {table.getHeaderGroups().map((hg) => (
                 <TableRow key={hg.id} className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
                   {hg.headers.map((header) => (
-                    <TableHead key={header.id} className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                    <TableHead key={header.id} className="text-xs font-semibold text-slate-700 dark:text-slate-300 px-6 py-3">
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -238,7 +238,7 @@ export default function CustomersTable({
                   className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-blue-50/50 dark:hover:bg-slate-800/30 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-sm text-slate-700 dark:text-slate-300">
+                    <TableCell key={cell.id} className="text-sm text-slate-700 dark:text-slate-300 px-6 py-3">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}

@@ -4,7 +4,6 @@ import DashboardActions from "@/src/components/dashboard/DashboardActions";
 import AdminPanel from "@/src/components/dashboard/AdminPanel";
 import { DashboardStats } from "@/src/components/dashboard/DashboardStats";
 import { listCustomersForUser } from "./actions";
-import { Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -46,19 +45,8 @@ export default async function DashboardPage() {
       {rows.length > 0 && <DashboardStats customers={rows} />}
 
       {/* Customers Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Users className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-            Customers
-          </h2>
-          <span className="ml-auto text-xs font-medium px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full">
-            {rows.length} total
-          </span>
-        </div>
-        <div className="bg-white dark:bg-slate-800/50 dark:backdrop-blur-sm border border-slate-200 dark:border-slate-700 rounded-lg p-0 overflow-hidden shadow-sm dark:shadow-none">
-          <CustomersTable initialRows={rows} />
-        </div>
+      <div className="-mx-6">
+        <CustomersTable initialRows={rows} />
       </div>
 
       {/* Admin Section */}
