@@ -374,7 +374,8 @@ export function MessageList({
                         )}
 
                       {(task.assistant.result.health ||
-                        task.assistant.result.actions) && (
+                        task.assistant.result.actions ||
+                        task.assistant.result.summary) && (
                         <ResultsSummaryCard result={task.assistant.result} />
                       )}
 
