@@ -258,7 +258,10 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
               });
             }
             if (process.env.NODE_ENV === "development") {
-              console.log("[Copilot] Showing success toast for taskId:", taskId);
+              console.log(
+                "[Copilot] Showing success toast for taskId:",
+                taskId
+              );
             }
             toast.success("Plan complete", {
               description:
