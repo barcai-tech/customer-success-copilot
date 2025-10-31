@@ -1,260 +1,551 @@
 # Customer Success Copilot
 
-Customer Success Copilot is an agentic AI assistant for Customer Success Managers (CSMs) and Technical Account Managers (TAMs). It plans multi-step workflows, calls specialized backend tools, and returns structured, actionable results rather than freeform chat.
+## Purpose and Overview
 
-- Agentic planning with deterministic guardrails
-- Structured outputs with strict schemas (Zod)
-- Stateless tool layer (AWS Lambda) with HMAC verification
-- Managed authentication via Clerk (no user data on our infra)
-- Multi-tenant data isolation using Clerk userId
-- Neon PostgreSQL for usage, tickets, and contract data
+**Customer Success Copilot** is an agentic AI assistant purpose-built for Customer Success Managers (CSMs) and Technical Account Managers (TAMs). It plans multi-step AI-driven workflows that analyze customer health, generate actionable insights, and produce business-ready outputs (renewal briefs, QBR outlines, health scores, churn alerts).
+
+Rather than providing freeform conversational responses, the Copilot:
+
+- Decomposes complex customer analysis tasks into deterministic or LLM-guided planning steps
+- Invokes specialized backend tools to gather real-time customer data (usage trends, open tickets, contract details)
+- Applies domain-specific logic to compute health scores and business recommendations
+- Returns structured, schema-validated results ready for customer engagement
+
+**Key Value Propositions:**
+
+- **Speed:** Multi-tool orchestration in seconds instead of manual analysis
+- **Consistency:** Deterministic or guardrailed LLM planning ensures repeatable, audit-able decisions
+- **Security:** All secrets server-side; customer data scoped to authenticated users; HMAC-signed backend calls
+- **Extensibility:** Modular tool registry supports adding new data sources and analyses
 
 ---
 
-## Architecture & Design
+## Architecture and Design
+
+### System Architecture Overview
 
 ```
-┌──────────────────┐
-│  User Browser    │  Next.js 16 (React 19)
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────────────────────────┐
-│ Vercel (Server Actions + Clerk)      │
-├──────────────────────────────────────┤
-│ • Clerk auth (managed identity)      │
-│ • Agentic planners (server-side)     │
-│ • OpenAI calls (server-only)         │
-└────────┬─────────────────────────────┘
-         │ HMAC-signed requests
-         ▼
-┌──────────────────────────────────────┐
-│ AWS API Gateway + Lambda tools       │
-├──────────────────────────────────────┤
-│ • Tool handlers (Python 3.12)        │
-│ • HMAC verify + envelope schema      │
-│ • Postgres via pg8000                │
-└────────┬─────────────────────────────┘
-         │ TLS
-         ▼
-┌──────────────────────────────────────┐
-│ Neon PostgreSQL                      │
-├──────────────────────────────────────┤
-│ • Multi-tenant rows (ownerUserId)    │
-│ • usage_summaries, ticket_summaries  │
-│ • contracts, messages, eval_*        │
-└──────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        User Browser                             │
+│                    (Next.js 16, React 19)                       │
+└────────────────────────┬────────────────────────────────────────┘
+                         │ HTTPS
+                         ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   Vercel (Frontend)                             │
+├─────────────────────────────────────────────────────────────────┤
+│ • Clerk Authentication (managed identity provider)             │
+│ • Server Actions (planners, LLM calls, database ops)           │
+│ • Streaming SSE endpoints (real-time tool execution)           │
+│ • Zustand stores (UI state, customer context)                  │
+│ • shadcn/UI components (responsive, accessible UI)            │
+└──────────┬──────────────────────────────────────────┬───────────┘
+           │ HMAC-signed requests                     │ SQL
+           │ (time-bound, ±5 minutes)                 │ (Drizzle)
+           ▼                                           ▼
+    ┌──────────────────┐               ┌──────────────────────┐
+    │ AWS API Gateway  │               │ Neon PostgreSQL      │
+    │ + Lambda Layer   │               ├──────────────────────┤
+    └────┬─────────────┘               │ Multi-tenant tables: │
+         │ Routes:                      │ • companies          │
+    ┌────┴────────────────────┐        │ • messages           │
+    │ 6 Stateless Tools:      │        │ • contracts          │
+    ├────────────────────────┤        │ • usage_summaries    │
+    │ • calculate_health     │        │ • ticket_summaries   │
+    │ • generate_email       │        │ • eval_sessions      │
+    │ • generate_qbr_outline │        └──────────────────────┘
+    │ • get_contract_info    │
+    │ • get_customer_usage   │
+    │ • get_recent_tickets   │
+    └────────────────────────┘
+         (Python 3.12, pg8000)
 ```
 
-Key design choices
+### Key Design Principles
 
-- Thin client, all secrets server-side (Next.js server actions)
-- Clerk authentication; we do not store user credentials
-- Lambda tools are stateless and independently deployable
-- All tool calls are HMAC-signed and time-bound (±5 min)
-- Zod validates inputs/outputs at every boundary
-- Health scoring is deterministic (no LLM)
+1. **Server-First Architecture**
+
+   - All secrets stored server-side; never exposed to browser
+   - Clerk manages identity; no credential storage on our infrastructure
+   - OpenAI API calls made only from server (API key never leaves Vercel)
+
+2. **Stateless Tool Layer**
+
+   - Each Lambda tool independently callable
+   - No shared state or caching between tools
+   - HMAC verification on every request ensures authenticity
+   - Timestamp validation (±5 min window) prevents replay attacks
+
+3. **Deterministic Planning with Guardrails**
+
+   - Deterministic planner: task-aware, fixed logic, no LLM
+   - LLM planner: model chooses tools under strict system rules (tools are sole truth source)
+   - Output validation: Zod schemas enforce structure and type safety
+   - Health scoring: deterministic algorithm (no LLM, reproducible results)
+
+4. **Multi-Tenant Isolation**
+
+   - Every row includes `ownerUserId` (Clerk user ID)
+   - All queries filter by owner; unauthenticated users see only public data
+   - Proper indexes ensure performant isolation enforcement
+
+5. **Envelope-Based API Contract**
+   - Standard response format: `{ ok: boolean, data?: T, error?: { code, message } }`
+   - Consistent error handling across all tools
+   - Strongly typed with Zod for compile-time safety
 
 ---
 
 ## Features
 
-- Health Check: usage → tickets → contract → score → signals
-- Renewal Brief: usage → tickets → contract → score → email
-- QBR Preparation: usage → tickets → contract → score → outline
-- Churn Review: usage → tickets → health → actions
-- Email Draft: usage → health → email
+### Core Capabilities
 
-UI/UX
+#### 1. **Health Check**
 
-- Customer selector and task quick-actions (Health, Renewal, QBR, Email, Churn)
-- Streaming progress with per-tool timings and error provenance
-- Copy-ready outputs (summary, actions, email draft)
-- Dark/light mode, consistent design tokens
+Calculates customer health score using deterministic algorithm:
+
+- **Input:** Customer ID
+- **Data Sources:** Usage trend (30-day), open tickets count, contract renewal date
+- **Output:** Health score (0-100), risk level (low/medium/high), signals (trend, ticket burden, renewal urgency)
+- **Logic:** Weighted scoring—usage trend (40%), ticket volume (30%), renewal proximity (30%)
+
+#### 2. **Renewal Brief**
+
+Prepares renewal-focused analysis for customer engagement:
+
+- **Input:** Customer ID
+- **Data Sources:** Contract details, usage patterns, ticket history, calculated health
+- **Output:** Structured brief with ARR, renewal date, health context, recommended next steps
+- **Use Case:** CSM preparation before renewal conversation
+
+#### 3. **QBR Preparation**
+
+Generates outline for Quarterly Business Review:
+
+- **Input:** Customer ID
+- **Data Sources:** Usage trends, ticket patterns, health signals
+- **Output:** QBR outline with sections (achievements, challenges, opportunities, roadmap)
+- **Use Case:** CSM template for QBR agenda
+
+#### 4. **Churn Review**
+
+Identifies churn risk factors and mitigation actions:
+
+- **Input:** Customer ID
+- **Data Sources:** Usage decline signals, ticket escalations, health score
+- **Output:** Risk factors, recommended actions, urgency flags
+- **Use Case:** Escalate at-risk accounts to leadership
+
+#### 5. **Email Draft**
+
+Generates ready-to-send renewal outreach email:
+
+- **Input:** Customer ID
+- **Data Sources:** Usage trend, open tickets, renewal date
+- **Output:** Subject line, email body (templated with customer context)
+- **Use Case:** Quick outreach or CSM reference
+
+### User Experience Features
+
+- **Customer Selector:** Search and quick-select from user's customer base
+- **Task Quick-Actions:** One-click buttons for Health, Renewal, QBR, Email, Churn
+- **Real-Time Streaming Progress:** Watch tool execution with per-tool timing and errors
+- **Copy-Ready Output:** Structured results formatted for immediate use (email, brief, etc.)
+- **Dark/Light Mode:** Full theme support with consistent design tokens
+- **Responsive Design:** Mobile-friendly interface using shadcn/UI components
 
 ---
 
 ## Technology Stack
 
-- Frontend: Next.js 16 (App Router), React 19, Tailwind v4, shadcn/Radix, Zustand, Zod, Drizzle ORM (Neon HTTP)
-- Auth: Clerk (`@clerk/nextjs`) with middleware-protected routes and server-side `auth()`
-- Backend tools: Python 3.12 AWS Lambda (HMAC, pg8000 driver, envelope responses)
-- Data: Neon PostgreSQL (usage_summaries, ticket_summaries, contracts, messages, eval_*)
-- LLM: OpenAI Chat Completions (server-only; configurable model via env)
+### Frontend
+
+- **Framework:** Next.js 16 (App Router), React 19 with RSC (React Server Components)
+- **Styling:** Tailwind CSS v4, shadcn/UI components (Radix primitives)
+- **State Management:** Zustand (UI state only, no data duplication)
+- **Type Safety:** TypeScript strict mode, Zod for runtime validation
+- **Database Access:** Drizzle ORM with Neon HTTP driver
+- **Authentication:** Clerk (`@clerk/nextjs`) with proxy.ts route protection
+- **Build:** Turbopack, pnpm for fast builds and dependency management
+
+### Backend Tools
+
+- **Runtime:** Python 3.12 on AWS Lambda
+- **Database Driver:** pg8000 (pure Python PostgreSQL driver)
+- **Authentication:** HMAC-SHA256 request signing with timestamp validation
+- **Response Format:** Standard envelope (ok, data, error) with Pydantic validation
+
+### Data & Infrastructure
+
+- **Database:** Neon PostgreSQL (managed, serverless)
+  - Supports multi-tenant isolation with `ownerUserId` on all tables
+  - Automated backups, point-in-time recovery, geo-redundancy
+- **Hosting:** Vercel (frontend), AWS API Gateway + Lambda (tools)
+- **API Orchestration:** AWS SAM for infrastructure as code
+- **LLM Provider:** OpenAI Chat Completions API (configurable model via env)
+
+### DevOps & Deployment
+
+- **Version Control:** Git with GitHub
+- **Infrastructure as Code:** AWS SAM template (sam-template.yaml)
+- **Secrets Management:** AWS SSM Parameter Store (Lambda), Vercel env vars (frontend)
+- **Monitoring:** CloudWatch (Lambda logs), Vercel Analytics
 
 ---
 
-## Setup & Usage
+## Setup and Usage
 
-1) Frontend
+### Prerequisites
 
-Copy and fill `frontend/.env.local` from `frontend/.env.local.example`:
+- Node.js 18+ (for frontend)
+- Python 3.12 (for backend local dev)
+- pnpm (or npm)
+- AWS CLI + SAM CLI (for deployment)
+- Neon PostgreSQL account
+- Clerk account
+- OpenAI API account
 
-- `BACKEND_BASE_URL` — API Gateway base URL (or local dev server)
-- `HMAC_SECRET` and `HMAC_CLIENT_ID` — shared secret and client id
-- `DATABASE_URL` — Neon Postgres URL (sslmode=require)
-- `OPENAI_API_KEY` (server-only), optional `OPENAI_MODEL`
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
+### Frontend Setup (Local Development)
 
-Install and run:
+1. **Environment Configuration**
 
+Create `frontend/.env.local`:
+
+```bash
+# Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+
+# Database
+DATABASE_URL=postgresql://user:password@db.neon.tech/copilot?sslmode=require
+
+# Backend API
+BACKEND_BASE_URL=http://localhost:8787           # Local dev
+# OR: https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/prod  # Production
+
+# HMAC Signing (must match backend secret)
+HMAC_SECRET=dev-secret-key
+HMAC_CLIENT_ID=copilot-frontend
+
+# LLM (server-side only)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o  # Optional; defaults to gpt-4o
+
+# Optional Observability
+NEXT_PUBLIC_VERCEL_ANALYTICS_ID=...
 ```
+
+2. **Install Dependencies and Run**
+
+```bash
 cd frontend
 pnpm install
 pnpm dev
 ```
 
-Note: middleware allows `/api/copilot/stream` publicly, but responses are scoped: unauthenticated users operate on `ownerUserId = "public"`; signed-in users are scoped to their own data via Clerk.
+Frontend runs on `http://localhost:3000`
 
-2) Backend tools (local dev)
+3. **Database Migrations**
 
+```bash
+pnpm db:generate    # Generate migration from schema changes
+pnpm db:migrate     # Apply migrations to Neon
+pnpm db:seed        # Optional: seed demo data
 ```
-cd backend
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-export HMAC_SECRET=dev-secret
+
+### Backend Setup (Local Development)
+
+1. **Environment Configuration**
+
+Create `backend/.env`:
+
+```bash
+export HMAC_SECRET=dev-secret-key
 export ALLOWED_ORIGIN=http://localhost:3000
+export DATABASE_URL=postgresql://user:password@db.neon.tech/copilot?sslmode=require
+```
+
+**Note:** Do NOT include `channel_binding=require` in DATABASE_URL for local development (pg8000 limitation).
+
+2. **Install Dependencies**
+
+```bash
+cd backend
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+3. **Run Local Dev Server**
+
+```bash
+export HMAC_SECRET=dev-secret
 python dev_server.py --port 8787
 ```
 
-Then set `BACKEND_BASE_URL=http://127.0.0.1:8787` in the frontend `.env.local`.
+Backend tools available at `http://localhost:8787`
 
-Backend uses Postgres via `pg8000`. For local dev, keep `DATABASE_URL` in your `.env` files; do not include `channel_binding=require` (pg8000 does not support it).
+### Backend Deployment (AWS)
 
-2b) Backend tools (AWS deploy)
+#### Prerequisites
 
-We deploy six Python Lambdas behind API Gateway with AWS SAM. Secrets are read at runtime from SSM Parameter Store; no dynamic secure references are baked into the template.
+- AWS CLI configured with appropriate credentials
+- SAM CLI installed
+- AWS SSM parameters set up:
+  ```
+  /copilot/hmac/v1              (SecureString: HMAC secret)
+  /copilot/database/url          (SecureString: DATABASE_URL)
+  /copilot/prod/hmac/v1          (SecureString: prod HMAC)
+  /copilot/prod/database/url      (SecureString: prod DATABASE_URL)
+  ```
 
-Prepare SSM parameters (SecureString):
+#### Deploy to Dev
 
-- HMAC secret: `/copilot/hmac/v1` (dev) and `/copilot/prod/hmac/v1` (prod)
-- Database URL: `/copilot/database/url` (dev) and `/copilot/prod/database/url` (prod)
-
-Notes
-
-- The Database URL should include `sslmode=require` and must not include `channel_binding=require`.
-- The frontend `HMAC_SECRET` value must exactly match the HMAC parameter the Lambdas read.
-
-Deploy commands (from `infra/`):
-
-Dev stage
-
-```
+```bash
+cd infra
 sam build --template-file sam-template.yaml --config-env default --region ap-southeast-1 --profile cs-copilot
 sam deploy --config-env default --region ap-southeast-1 --profile cs-copilot
 ```
 
-Prod stage
+#### Deploy to Production
 
-```
+```bash
+cd infra
 sam build --template-file sam-template.yaml --config-env prod --region ap-southeast-1 --profile cs-copilot
 sam deploy --config-env prod --region ap-southeast-1 --profile cs-copilot
-
-Optional monitoring
-
-- You can enable basic CloudWatch monitoring via parameters. By default it is off.
-- To enable in a given config env, set in `infra/samconfig.toml`:
-
-```
-EnableMonitoring="true" LogRetentionDays="14" AlarmErrorsThreshold="1" AlarmEvaluationPeriods="1" AlarmPeriodSeconds="300" AlarmTopicArn="arn:aws:sns:..."
-```
-- This creates log groups with retention and simple “Lambda Errors” alarms per function. Remove or set `EnableMonitoring="false"` to turn it off later.
 ```
 
-The stage name controls the base path of the API URL (`/dev`, `/prod`). You can also configure a custom API Gateway domain and base path mapping if you want to remove the stage path segment.
+**Important:** The stage name (`/dev` or `/prod`) is appended to the API Gateway URL. Set `BACKEND_BASE_URL` in frontend env accordingly.
 
-3) Database
+### Frontend Deployment (Vercel)
 
-- Provide the Neon `DATABASE_URL` to the frontend environment and to SSM for the backend (`/copilot/.../database/url`).
-- Apply Drizzle migrations from the frontend:
+1. **Connect Repository**
+
+   - Link your GitHub repo to Vercel
+   - Select `frontend/` as the root directory
+
+2. **Environment Variables** (Project Settings → Environment Variables)
+
+   Set for both **Production** and **Preview** environments:
+
+   - `BACKEND_BASE_URL` — Your production API Gateway URL
+   - `HMAC_SECRET` — Must match `/copilot/prod/hmac/v1`
+   - `DATABASE_URL` — Neon connection string
+   - `OPENAI_API_KEY` — Your API key
+   - `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — Clerk key
+   - `CLERK_SECRET_KEY` — Clerk secret
+
+3. **Deploy**
+   - Click "Deploy" in Vercel dashboard
+   - Or use Vercel CLI: `vercel deploy --prod`
+
+**Note:** Use different environment variable scopes for Production vs Preview.
+
+### Database Setup (Neon)
+
+1. **Create Project** in Neon dashboard
+2. **Get Connection String** with `sslmode=require`
+3. **Run Migrations:**
+   ```bash
+   cd frontend
+   pnpm db:migrate
+   ```
+4. **Seed Demo Data** (optional):
+   ```bash
+   pnpm db:seed
+   ```
+
+---
+
+## Key Implementation Details
+
+### Authentication & Authorization
+
+- **Clerk Integration:**
+
+  - `proxy.ts` protects routes; public routes (landing, `/api/copilot/stream`) allowlisted
+  - `auth()` server function reads authenticated `userId`
+  - Multi-tenancy enforced: all queries filter by `ownerUserId`
+
+- **Public Access:**
+  - Unauthenticated users can access `/api/copilot/stream` but only see data with `ownerUserId = "public"`
+  - Authenticated users see only their own data
+
+### Tool Invocation (HMAC Signing)
+
+Every tool call is signed with HMAC-SHA256:
 
 ```
-cd frontend
-    pnpm db:generate && pnpm db:migrate
+Header: X-Signature = HMAC-SHA256(secret, timestamp.clientId.body)
+Header: X-Timestamp = milliseconds since epoch
+Header: X-Client = copilot-frontend
+
+Verification: timestamp must be within ±5 minutes
+Comparison: constant-time (prevents timing attacks)
 ```
 
-Quick endpoints
+Backend tools verify signature before processing; invalid signatures rejected with 401.
 
-- `POST /api/copilot/stream` — streaming LLM-planned copilot responses with tool execution
-- `POST /api/eval/stream` — streaming evaluation session execution with test results
+### Zod Schemas & Type Safety
+
+All input/output boundaries validated:
+
+- Tool responses validated with Zod schemas (Usage, Tickets, Contract, Health, Email, QBR)
+- Server Actions validate input before processing
+- Planner result schema enforces structure before rendering
+
+### Health Score Calculation
+
+**Deterministic algorithm (no LLM, reproducible):**
+
+```
+usageScore = 100 (up) | 50 (flat) | 0 (down)
+ticketScore = 100 (0 open) | 80 (≤2) | 50 (≤5) | 20 (>5)
+renewalScore = 100 (>180 days) | 70 (60-180 days) | 30 (<60 days)
+
+healthScore = (usageScore × 0.4) + (ticketScore × 0.3) + (renewalScore × 0.3)
+riskLevel = high (score<50) | medium (50-74) | low (≥75)
+signals = [trend, ticket burden, renewal urgency based on thresholds]
+```
 
 ---
 
 ## Project Structure
 
 ```
-frontend/                      Next.js app (server actions, SSE endpoints)
+frontend/                       Next.js App Router application
   app/
+    layout.tsx                 Root layout with Clerk + Analytics
+    page.tsx                   Landing page
+    actions.ts                 Core server actions (planner, customer ops)
+    api/
+      copilot/stream/          Streaming copilot endpoint (SSE)
+      eval/stream/             Evaluation streaming (admin-only)
   src/
-    agent/                     planners, tool registry, LLM wrapper
-    contracts/                 Zod schemas for tools and planner
-    db/                        Drizzle client and schema
-backend/                      Python Lambda tools (HMAC + Postgres)
-infra/                        AWS SAM for API Gateway + Lambda
-README.md                     This file
-SECURITY_AND_COMPLIANCE.md    Security & governance practices
-AGENTIC_AI_WORKFLOW_DESIGN.md Agentic AI design and workflows
-LICENSE
+    agent/                     Agentic planning & execution
+      planner.ts               Deterministic planner
+      llmPlanner.ts            LLM-driven planner
+      executor.ts              Tool execution orchestrator
+      invokeTool.ts            HMAC signing & tool calls
+      synthesizer.ts           Result aggregation & response generation
+      tool-registry.ts         Tool definitions & capabilities
+      types.ts                 Type definitions for workflows
+    components/                React components
+      copilot/                 Copilot UI (message list, controls)
+      dashboard/               Customer management
+      ui/                      shadcn/UI base components
+    contracts/                 Zod schemas
+      tools.ts                 Tool request/response envelopes
+      user.ts                  User/auth types
+      eval.ts                  Evaluation workflow types
+    db/
+      schema.ts                Drizzle ORM schema (companies, messages, contracts, etc.)
+      client.ts                Drizzle client initialization
+    lib/
+      backend.ts               HMAC signing & fetch wrapper
+      validation.ts            Input validation helpers
+      authz.ts                 Authorization checks (eval access, etc.)
+      logger.ts                Server-side logging
+    llm/
+      provider.ts              OpenAI API wrapper
+    store/                     Zustand state stores
+      copilot-store.ts         Copilot UI state
+      customer-store.ts        Customer context
+      eval-store.ts            Evaluation session state
+  public/                      Static assets
+  proxy.ts                     Clerk route protection
+  env.example                  Environment variables template
+
+backend/                       Python Lambda tools
+  tools/
+    calculate_health/          Health score computation
+    generate_email/            Email draft generation
+    generate_qbr_outline/      QBR outline generation
+    get_contract_info/         Contract data retrieval
+    get_customer_usage/        Usage analytics
+    get_recent_tickets/        Support ticket data
+  _shared/
+    hmac_auth.py               HMAC verification & signing
+    db.py                      PostgreSQL connection
+    models.py                  Pydantic request/response models
+    responses.py               Envelope response builders
+    utils.py                   Helper utilities
+  dev_server.py                Local development server
+
+infra/                         AWS Infrastructure as Code
+  sam-template.yaml            AWS SAM template (API Gateway, Lambda, roles)
+  samconfig.toml               SAM configuration (dev/prod stages)
+  layers/
+    common/                    Lambda layer with shared dependencies
+
+docs/                          Documentation & notebooks
+  M3_UGL_1.ipynb               Usage examples & demos
+  _preview/                    Reference materials
+
+.github/
+  workflows/                   CI/CD pipelines (optional)
 ```
 
 ---
 
-## Key Concepts
+## Development Workflow
 
-- Deterministic Planner (`frontend/src/agent/planner.ts`): task-aware tool orchestration; no LLM.
-- LLM Planner (`frontend/src/agent/llmPlanner.ts`): tool decisions by LLM; validated outputs; guarded by rules.
-- HMAC Tool Calls (`frontend/src/agent/invokeTool.ts` + `backend/_shared/hmac_auth.py`): authenticity and replay protection.
-- Multi-tenancy (`frontend/src/db/schema.ts`): all rows keyed by `ownerUserId` (Clerk user id).
-- Contracts & Validation (`frontend/src/contracts/*.ts`): Zod schemas enforce shape and safety.
+### Local Development
+
+1. **Start Backend:**
+
+   ```bash
+   cd backend && python dev_server.py --port 8787
+   ```
+
+2. **Start Frontend:**
+
+   ```bash
+   cd frontend && pnpm dev
+   ```
+
+3. **Access Application:**
+   - Open http://localhost:3000
+   - Sign in with Clerk
+   - Select a customer and run a planner action
+
+### Adding New Tools
+
+1. Create new handler in `backend/tools/<tool-name>/handler.py`
+2. Define request/response schema in Pydantic
+3. Register in `tool-registry.ts` with Zod schema
+4. Call from planner using `invokeTool<ResultType>()`
+
+### Database Changes
+
+1. Modify schema in `frontend/src/db/schema.ts`
+2. Generate migration: `pnpm db:generate`
+3. Apply migration: `pnpm db:migrate`
+
+### Deployment
+
+- **Frontend:** Push to `main` branch; Vercel auto-deploys
+- **Backend:** Deploy via SAM from `infra/` directory
+
+---
+
+## Support and Documentation
+
+- **Security & Compliance:** See `SECURITY_AND_COMPLIANCE.md`
+- **Agentic AI Design:** See `AGENTIC_AI_WORKFLOW_DESIGN.md`
 
 ---
 
 ## Future Improvements
 
-- Custom task templates and scheduling
-- Slack/CRM integrations
-- Additional tool sources (billing, product analytics)
-- Model gating and rate limiting for heavy workloads
-
----
-
-## Support & Documentation
-
-- `SECURITY_AND_COMPLIANCE.md` — Security, compliance, governance
-- `AGENTIC_AI_WORKFLOW_DESIGN.md` — Agent design, steps, guardrails
+- **Custom Task Templates:** User-defined workflows beyond preset tasks
+- **Slack/CRM Integrations:** Send insights directly to Slack, sync with CRM
+- **Additional Data Sources:** Billing analytics, product usage, support tickets from third-party APIs
+- **Advanced Rate Limiting:** Per-user quotas and API throttling for heavy workloads
+- **Evaluation Framework:** Systematic testing of planner decisions and LLM outputs
 
 ---
 
 ## License
 
 MIT. See `LICENSE`.
-
----
-
-## Vercel Deployment
-
-The frontend is a Next.js app designed for Vercel. Analytics and Speed Insights are integrated and enabled automatically in production builds.
-
-Steps
-
-1) Create a Vercel project and import `frontend/` as the root.
-2) Set Production and Preview environment variables in Vercel (Project Settings → Environment Variables):
-
-- `BACKEND_BASE_URL` — e.g., `https://<api-id>.execute-api.ap-southeast-1.amazonaws.com/prod` or your custom domain
-- `HMAC_SECRET` — must match `/copilot/prod/hmac/v1`
-- `DATABASE_URL` — Neon connection string with `sslmode=require` (no `channel_binding=require`)
-- `OPENAI_API_KEY` and optional `OPENAI_MODEL`
-- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
-- Optional tuning: `ENABLE_TOOL_RETRY`, `TOOL_RETRY_CODES`, `TOOL_RETRY_DELAY_MS`
-
-3) Deploy via Vercel UI or CLI (`vercel` from the repo root and select `frontend/`).
-
-Analytics & Speed Insights
-
-- Packages: `@vercel/analytics`, `@vercel/speed-insights` (already in `package.json`).
-- Components are added in `frontend/app/layout.tsx`; they only collect data in Vercel Production/Preview.
-
-Notes
-
-- Keep different env sets for Preview vs Production (Vercel supports scoped variables).
-- Ensure CORS/AllowedOrigin for the backend includes your Vercel domain if you call tools from the browser (the app uses server actions, so it normally does not).
