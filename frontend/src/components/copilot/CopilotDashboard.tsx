@@ -243,10 +243,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
             }
             useCopilotStore
               .getState()
-              .finalizeActiveAssistant(
-                data,
-                (data.summary as string | undefined) || "Here are the results:"
-              );
+              .finalizeActiveAssistant(data);
             // Persist assistant message with final result
             const companyId3 =
               customerIdOverride ||
