@@ -24,6 +24,8 @@ import { DeleteCustomerDialog } from "./DeleteCustomerDialog";
 import { CustomerFormDialog } from "./CustomerFormDialog";
 import { CustomerActionsMenu } from "./CustomerActionsMenu";
 import { TrendBadge } from "./TrendBadge";
+import { EmptyCustomersState } from "./EmptyCustomersState";
+import { seedGlobalCustomersAsAdmin } from "@/app/dashboard/actions";
 import { ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Select,
@@ -49,6 +51,23 @@ export default function CustomersTable({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [pageIndex, setPageIndex] = useState(0);
   const [pageSize, setPageSize] = useState(10);
+  const [isLoadingDemo, setIsLoadingDemo] = useState(false);
+
+  const handleSeedDemo = async () => {
+    setIsLoadingDemo(true);
+    try {
+      await seedGlobalCustomersAsAdmin();
+      // Refetch data after seeding
+      const newRows = await import("@/app/dashboard/actions").then(
+        (m) => m.listCustomersForUser()
+      );
+      setRows(newRows || []);
+    } catch (error) {
+      console.error("Failed to seed demo data:", error);
+    } finally {
+      setIsLoadingDemo(false);
+    }
+  };
 
   // Clamp page index if data size changes
   useEffect(() => {
@@ -215,11 +234,11 @@ export default function CustomersTable({
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-8 text-center">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            No customers yet. Use the actions above to seed or add one.
-          </p>
-        </div>
+        <EmptyCustomersState
+          onSeedDemo={handleSeedDemo}
+          onAddCustomer={openAddDialog}
+          isLoadingDemo={isLoadingDemo}
+        />
       ) : (
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
           <Table>
