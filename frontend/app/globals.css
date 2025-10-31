@@ -353,15 +353,15 @@ body {
     #10b981
   );
   background-size: 300% 300%;
-  border-radius: 0.5rem;
+  border-radius: 0.7rem;
   z-index: -1;
   animation: gradient-shift 6s ease infinite;
   pointer-events: none;
 }
 
 .gradient-border-wrapper::after {
-  filter: blur(8px);
-  opacity: 0.6;
+  filter: blur(10px);
+  opacity: 0.8;
 }
 
 .gradient-border-wrapper > * {
