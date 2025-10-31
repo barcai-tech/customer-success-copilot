@@ -198,50 +198,60 @@ export default function CustomersTable({
   });
 
   return (
-    <div className="rounded-md border bg-card p-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Customers</h2>
-        <Button onClick={openAddDialog}>+ Add Customer</Button>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Customer List</h3>
+        <Button onClick={openAddDialog} className="bg-blue-600 hover:bg-blue-700 text-white">
+          + Add Customer
+        </Button>
       </div>
+      
       {rows.length === 0 ? (
-        <div className="text-sm text-muted-foreground">
-          No customers yet. Use the actions above to seed or add one.
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-8 text-center">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            No customers yet. Use the actions above to seed or add one.
+          </p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((hg) => (
-              <TableRow key={hg.id}>
-                {hg.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id}>
-                {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((hg) => (
+                <TableRow key={hg.id} className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                  {hg.headers.map((header) => (
+                    <TableHead key={header.id} className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.map((row) => (
+                <TableRow 
+                  key={row.id}
+                  className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-blue-50/50 dark:hover:bg-slate-800/30 transition-colors"
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id} className="text-sm text-slate-700 dark:text-slate-300">
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
 
       {rows.length > 0 && (
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-muted-foreground">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm">
+          <div className="text-slate-600 dark:text-slate-400">
             {(() => {
               const total = table.getSortedRowModel().rows.length;
               const start = total === 0 ? 0 : pageIndex * pageSize + 1;

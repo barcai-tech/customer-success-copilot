@@ -2,6 +2,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 import CustomersTable from "@/src/components/dashboard/CustomersTable";
 import DashboardActions from "@/src/components/dashboard/DashboardActions";
 import AdminPanel from "@/src/components/dashboard/AdminPanel";
+import { DashboardStats } from "@/src/components/dashboard/DashboardStats";
 import { listCustomersForUser } from "./actions";
 import { Users } from "lucide-react";
 
@@ -40,6 +41,9 @@ export default async function DashboardPage() {
         </div>
         <DashboardActions hasCustomers={rows.length > 0} />
       </div>
+
+      {/* Stats Cards */}
+      {rows.length > 0 && <DashboardStats customers={rows} />}
 
       {/* Customers Section */}
       <div className="space-y-4">
