@@ -45,7 +45,7 @@ export default function Header() {
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
           <SignedOut>
-            <SignInButton mode="modal" signInUrl="/sign-in">
+            <SignInButton>
               <Button
                 variant="ghost"
                 size="icon"
@@ -65,7 +65,7 @@ export default function Header() {
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
           <SignedOut>
-            <SignInButton mode="modal" signInUrl="/sign-in">
+            <SignInButton>
               <Button
                 variant="ghost"
                 size="icon"
