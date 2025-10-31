@@ -609,51 +609,51 @@ export async function seedGlobalCustomersAsAdmin(): Promise<{
     throw new Error("Only admins can seed global customers");
   }
 
-  // Seed companies
+  // Seed companies with "public" owner so they're available to all users
   await db
     .insert(companies)
     .values(
       GLOBAL_COMPANIES.map((c) => ({
         externalId: c.id,
         name: c.name,
-        ownerUserId: userId,
+        ownerUserId: "public",
       }))
     )
     .onConflictDoNothing();
 
-  // Seed contracts
+  // Seed contracts with "public" owner
   await db
     .insert(contracts)
     .values(
       Object.entries(GLOBAL_CONTRACTS).map(([companyId, data]) => ({
         companyExternalId: companyId,
-        ownerUserId: userId,
+        ownerUserId: "public",
         arr: data.arr,
         renewalDate: new Date(data.renewalDate),
       }))
     )
     .onConflictDoNothing();
 
-  // Seed tickets
+  // Seed tickets with "public" owner
   await db
     .insert(ticketSummaries)
     .values(
       Object.entries(GLOBAL_TICKETS).map(([companyId, data]) => ({
         companyExternalId: companyId,
-        ownerUserId: userId,
+        ownerUserId: "public",
         openTickets: data.openTickets,
         recentTickets: data.recentTickets,
       }))
     )
     .onConflictDoNothing();
 
-  // Seed usage
+  // Seed usage with "public" owner
   await db
     .insert(usageSummaries)
     .values(
       Object.entries(GLOBAL_USAGE).map(([companyId, data]) => ({
         companyExternalId: companyId,
-        ownerUserId: userId,
+        ownerUserId: "public",
         sparkline: data.sparkline,
         avgDailyUsers: data.avgDailyUsers,
         trend: data.trend,
