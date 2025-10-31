@@ -33,10 +33,10 @@ export function NavMenu() {
             key={item.href}
             href={item.href}
             className={cn(
-              "flex items-center gap-2 text-sm transition-colors px-3 py-2 rounded-md",
+              "flex items-center gap-2 text-sm font-medium transition-colors px-3 py-2 rounded-md",
               isActive
-                ? "text-foreground bg-accent"
-                : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                ? "text-foreground bg-foreground/10"
+                : "text-foreground/70 hover:text-foreground hover:bg-foreground/5"
             )}
           >
             <Icon className="h-4 w-4" />

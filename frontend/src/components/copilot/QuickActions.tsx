@@ -1,26 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Activity,
-  FileText,
-  Mail,
-  PresentationIcon,
-  AlertTriangle,
-} from "lucide-react";
-import { Button } from "../ui/button";
 import { useCopilotStore, TASKS } from "../../store/copilot-store";
 import type { TaskType } from "../../store/copilot-store";
 import { CustomerContextCard } from "./CustomerContextCard";
+import { EnhancedQuickActionCard } from "./EnhancedQuickActionCard";
 import { getCustomerDetails } from "@/app/dashboard/actions";
-
-const TASK_ICONS = {
-  health: Activity,
-  renewal: FileText,
-  qbr: PresentationIcon,
-  email: Mail,
-  churn: AlertTriangle,
-};
 
 interface QuickActionsProps {
   disabled?: boolean;
@@ -30,23 +15,24 @@ interface CustomerData {
   company?: { id: string; name: string };
   contract?: { renewalDate?: string | Date; arr?: number } | null;
   tickets?: { openTickets?: number | null; recentTickets?: unknown[] };
-  usage?: { trend?: string | null; avgDailyUsers?: number; sparkline?: number[] };
+  usage?: {
+    trend?: string | null;
+    avgDailyUsers?: number;
+    sparkline?: number[];
+  };
 }
 
 export function QuickActions({ disabled = false }: QuickActionsProps) {
   const selectedCustomer = useCopilotStore((state) => state.selectedCustomer);
   const setInputValue = useCopilotStore((state) => state.setInputValue);
   const [customerData, setCustomerData] = useState<CustomerData | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   // Fetch customer details when customer changes
   useEffect(() => {
     if (!selectedCustomer?.id) {
-      setCustomerData(null);
       return;
     }
 
-    setIsLoading(true);
     const fetchDetails = async () => {
       try {
         const details = await getCustomerDetails(selectedCustomer.id);
@@ -54,8 +40,6 @@ export function QuickActions({ disabled = false }: QuickActionsProps) {
       } catch (error) {
         console.error("Failed to fetch customer details:", error);
         setCustomerData(null);
-      } finally {
-        setIsLoading(false);
       }
     };
 
@@ -114,31 +98,16 @@ export function QuickActions({ disabled = false }: QuickActionsProps) {
         <div className="grid grid-cols-1 gap-2 w-full">
           {(Object.keys(TASKS) as TaskType[]).map((taskType) => {
             const task = TASKS[taskType];
-            const Icon = TASK_ICONS[taskType];
 
             return (
-              <Button
+              <EnhancedQuickActionCard
                 key={taskType}
-                type="button"
-                variant="outline"
+                taskType={taskType}
+                label={task.label}
+                description={task.description}
                 onClick={() => handleQuickAction(taskType)}
                 disabled={disabled}
-                className="h-auto justify-start px-3 py-2 md:py-3"
-              >
-                <div className="flex items-start gap-3 text-left w-full">
-                  <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Icon className="h-4 w-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-foreground mb-1">
-                      {task.label}
-                    </h4>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {task.description}
-                    </p>
-                  </div>
-                </div>
-              </Button>
+              />
             );
           })}
         </div>

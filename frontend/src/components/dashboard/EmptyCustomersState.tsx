@@ -28,7 +28,8 @@ export function EmptyCustomersState({
             No Customers Yet
           </h3>
           <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm">
-            Get started by adding your first customer or seeding demo data to explore the dashboard features.
+            Get started by adding your first customer or seeding demo data to
+            explore the dashboard features.
           </p>
         </div>
 
@@ -36,15 +37,25 @@ export function EmptyCustomersState({
         <div className="grid grid-cols-3 gap-3 py-4 px-4 bg-white/50 dark:bg-slate-800/30 rounded-lg border border-slate-100 dark:border-slate-700/50">
           <div className="text-center">
             <p className="text-xs text-slate-600 dark:text-slate-400">Total</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-slate-50">0</p>
+            <p className="text-2xl font-bold text-slate-900 dark:text-slate-50">
+              0
+            </p>
           </div>
           <div className="text-center border-l border-r border-slate-200 dark:border-slate-700/50">
-            <p className="text-xs text-slate-600 dark:text-slate-400">Healthy</p>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">—</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Healthy
+            </p>
+            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+              —
+            </p>
           </div>
           <div className="text-center">
-            <p className="text-xs text-slate-600 dark:text-slate-400">At Risk</p>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">—</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              At Risk
+            </p>
+            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+              —
+            </p>
           </div>
         </div>
 
@@ -79,7 +90,8 @@ export function EmptyCustomersState({
 
         {/* Info Text */}
         <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm">
-          Demo data includes sample companies with usage trends, open tickets, and renewal dates to explore all dashboard features.
+          Demo data includes sample companies with usage trends, open tickets,
+          and renewal dates to explore all dashboard features.
         </p>
       </div>
     </div>

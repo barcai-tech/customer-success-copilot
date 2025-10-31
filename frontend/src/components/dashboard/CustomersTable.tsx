@@ -25,7 +25,10 @@ import { CustomerFormDialog } from "./CustomerFormDialog";
 import { CustomerActionsMenu } from "./CustomerActionsMenu";
 import { TrendBadge } from "./TrendBadge";
 import { EmptyCustomersState } from "./EmptyCustomersState";
-import { seedDemoCustomersAction, listCustomersForUser } from "@/app/dashboard/actions";
+import {
+  seedDemoCustomersAction,
+  listCustomersForUser,
+} from "@/app/dashboard/actions";
 import { ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Select,

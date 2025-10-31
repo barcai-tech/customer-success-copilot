@@ -1,6 +1,12 @@
 "use client";
 
-import { AlertCircle, TrendingDown, TrendingUp, Calendar, TicketIcon } from "lucide-react";
+import {
+  AlertCircle,
+  TrendingDown,
+  TrendingUp,
+  Calendar,
+  TicketIcon,
+} from "lucide-react";
 import type { Customer } from "@/src/store/copilot-store";
 
 interface CustomerContextCardProps {
@@ -95,9 +101,7 @@ export function CustomerContextCard({
             <p className="text-lg font-bold text-slate-900 dark:text-slate-50">
               {openTickets}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              open
-            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">open</p>
           </div>
         )}
 
@@ -110,14 +114,20 @@ export function CustomerContextCard({
               ) : trend === "down" ? (
                 <TrendingDown className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
               ) : (
-                <div className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400">—</div>
+                <div className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400">
+                  —
+                </div>
               )}
               <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
                 Trend
               </span>
             </div>
             <p className="text-sm font-bold text-slate-900 dark:text-slate-50 capitalize">
-              {trend === "up" ? "Growing" : trend === "down" ? "Declining" : "Flat"}
+              {trend === "up"
+                ? "Growing"
+                : trend === "down"
+                ? "Declining"
+                : "Flat"}
             </p>
           </div>
         )}

@@ -22,13 +22,20 @@ interface EnhancedQuickActionCardProps {
 
 const TASK_CONFIG: Record<
   TaskType,
-  { icon: React.ComponentType<{ className?: string }>; bgColor: string; borderColor: string; badgeColor: string; badgeText: string }
+  {
+    icon: React.ComponentType<{ className?: string }>;
+    bgColor: string;
+    borderColor: string;
+    badgeColor: string;
+    badgeText: string;
+  }
 > = {
   health: {
     icon: Activity,
     bgColor: "bg-emerald-50 dark:bg-emerald-950/30",
     borderColor: "border-emerald-200 dark:border-emerald-800",
-    badgeColor: "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300",
+    badgeColor:
+      "bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300",
     badgeText: "Health",
   },
   renewal: {
@@ -42,14 +49,16 @@ const TASK_CONFIG: Record<
     icon: PresentationIcon,
     bgColor: "bg-purple-50 dark:bg-purple-950/30",
     borderColor: "border-purple-200 dark:border-purple-800",
-    badgeColor: "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300",
+    badgeColor:
+      "bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300",
     badgeText: "Strategic",
   },
   email: {
     icon: Mail,
     bgColor: "bg-amber-50 dark:bg-amber-950/30",
     borderColor: "border-amber-200 dark:border-amber-800",
-    badgeColor: "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300",
+    badgeColor:
+      "bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-300",
     badgeText: "Engagement",
   },
   churn: {

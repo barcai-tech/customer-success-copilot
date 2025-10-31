@@ -2,12 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, User, Trash2, ChevronDown } from "lucide-react";
-// duplicate removed
-import { HealthSummary } from "./results/HealthSummary";
 import { EmailDraftCard } from "./results/EmailDraftCard";
-import { ActionItems } from "./results/ActionItems";
 import { TechnicalDetails } from "./results/TechnicalDetails";
 import { ExecutionPlan } from "./results/ExecutionPlan";
+import { ResultsSummaryCard } from "./results/ResultsSummaryCard";
 import { Button } from "@/src/components/ui/button";
 import {
   AlertDialog,
@@ -368,8 +366,9 @@ export function MessageList({
                           />
                         )}
 
-                      {task.assistant.result.health && (
-                        <HealthSummary health={task.assistant.result.health} />
+                      {(task.assistant.result.health ||
+                        task.assistant.result.actions) && (
+                        <ResultsSummaryCard result={task.assistant.result} />
                       )}
 
                       {task.assistant.result.emailDraft && (
@@ -377,30 +376,6 @@ export function MessageList({
                           email={task.assistant.result.emailDraft}
                         />
                       )}
-
-                      {(() => {
-                        const r = task.assistant!.result;
-                        const isRunning =
-                          status === "running" && activeAssistantId === task.id;
-                        const hasActions = !!(
-                          r?.actions && r.actions.length > 0
-                        );
-                        const summaryIsDuplicate = !!(
-                          r?.summary && r.summary === task.user?.content
-                        );
-                        const shouldShow =
-                          isRunning ||
-                          hasActions ||
-                          (r?.summary && !summaryIsDuplicate);
-                        return shouldShow ? (
-                          <ActionItems
-                            summary={r?.summary}
-                            actions={r?.actions}
-                            notes={r?.notes}
-                            isLoading={isRunning}
-                          />
-                        ) : null;
-                      })()}
 
                       <TechnicalDetails
                         result={task.assistant!.result}
