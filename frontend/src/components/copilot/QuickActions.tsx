@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Activity,
   FileText,
@@ -11,6 +12,7 @@ import { Button } from "../ui/button";
 import { useCopilotStore, TASKS } from "../../store/copilot-store";
 import type { TaskType } from "../../store/copilot-store";
 import { CustomerContextCard } from "./CustomerContextCard";
+import { getCustomerDetails } from "@/app/dashboard/actions";
 
 const TASK_ICONS = {
   health: Activity,
@@ -24,9 +26,41 @@ interface QuickActionsProps {
   disabled?: boolean;
 }
 
+interface CustomerData {
+  company?: { id: string; name: string };
+  contract?: { renewalDate?: string | Date; arr?: number } | null;
+  tickets?: { openTickets?: number | null; recentTickets?: unknown[] };
+  usage?: { trend?: string | null; avgDailyUsers?: number; sparkline?: number[] };
+}
+
 export function QuickActions({ disabled = false }: QuickActionsProps) {
   const selectedCustomer = useCopilotStore((state) => state.selectedCustomer);
   const setInputValue = useCopilotStore((state) => state.setInputValue);
+  const [customerData, setCustomerData] = useState<CustomerData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch customer details when customer changes
+  useEffect(() => {
+    if (!selectedCustomer?.id) {
+      setCustomerData(null);
+      return;
+    }
+
+    setIsLoading(true);
+    const fetchDetails = async () => {
+      try {
+        const details = await getCustomerDetails(selectedCustomer.id);
+        setCustomerData(details);
+      } catch (error) {
+        console.error("Failed to fetch customer details:", error);
+        setCustomerData(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDetails();
+  }, [selectedCustomer?.id]);
 
   const handleQuickAction = (taskType: TaskType) => {
     const customerName = selectedCustomer?.name || "[Customer]";
@@ -56,12 +90,20 @@ export function QuickActions({ disabled = false }: QuickActionsProps) {
   return (
     <div className="space-y-4">
       {/* Customer Context Card */}
-      <CustomerContextCard customer={selectedCustomer} />
+      <CustomerContextCard
+        customer={selectedCustomer}
+        health={undefined} // Calculate from planner results if available
+        trend={customerData?.usage?.trend ?? null}
+        renewalDate={customerData?.contract?.renewalDate ?? null}
+        openTickets={customerData?.tickets?.openTickets ?? null}
+      />
 
       {/* Quick Actions Section */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">Quick Actions</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            Quick Actions
+          </h3>
           <span className="text-xs text-muted-foreground">
             {selectedCustomer
               ? `for ${selectedCustomer.name}`
