@@ -8,6 +8,7 @@ import { HealthSummary } from "./results/HealthSummary";
 import { EmailDraftCard } from "./results/EmailDraftCard";
 import { ToolExecutionTimeline } from "./results/ToolExecutionTimeline";
 import { ActionItems } from "./results/ActionItems";
+import { ResultsSummaryCard } from "./results/ResultsSummaryCard";
 
 export function CopilotExecutor() {
   const {
@@ -97,6 +98,11 @@ export function CopilotExecutor() {
       {/* Results Display */}
       {(status === "running" || result) && (
         <div className="space-y-6">
+          {/* Results Summary Card - Main insight */}
+          {result && (
+            <ResultsSummaryCard result={result} taskType={selectedTask || undefined} />
+          )}
+
           {/* Tool Execution Timeline */}
           <ToolExecutionTimeline
             tools={result?.usedTools || []}
