@@ -1,6 +1,6 @@
 "use server";
 
-import { signHmac, nowMs } from "@/src/lib/hmac";
+import { backendPost } from "@/src/llm/backend-client";
 import { logger } from "@/src/lib/logger";
 import { randomUUID, createHash } from "crypto";
 import { z } from "zod";
@@ -45,14 +45,13 @@ export async function invokeTool<T = unknown>(
   schema?: z.ZodSchema<T>
 ): Promise<ResponseEnvelope<T>> {
   const base = mustEnv("BACKEND_BASE_URL");
-  const secret = mustEnv("HMAC_SECRET");
-  const clientId = process.env["HMAC_CLIENT_ID"] ?? "copilot-frontend";
   const url = `${base.replace(/\/$/, "")}/${tool}`;
   const payload = { customerId: body.customerId, params: body.params ?? {} };
-  const raw = JSON.stringify(payload);
 
   const ENABLE_RETRY = process.env.ENABLE_TOOL_RETRY === "1";
-  const RETRY_CODES = (process.env.TOOL_RETRY_CODES ?? "UNAUTHORIZED,TOOL_FAILURE,EXCEPTION")
+  const RETRY_CODES = (
+    process.env.TOOL_RETRY_CODES ?? "UNAUTHORIZED,TOOL_FAILURE,EXCEPTION"
+  )
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
@@ -60,30 +59,19 @@ export async function invokeTool<T = unknown>(
   const correlationId = randomUUID();
 
   const postOnce = async (): Promise<ResponseEnvelope<T>> => {
-    const ts = nowMs();
-    const sig = signHmac(secret, ts, clientId, raw);
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Timestamp": ts,
-        "X-Client": clientId,
-        "X-Signature": sig,
-      },
-      body: raw,
-      cache: "no-store",
-    });
+    const response = await backendPost<unknown>(url, payload);
 
-    let json: unknown;
-    try {
-      json = await res.json();
-    } catch {
-      throw new Error(`Invalid JSON from tool ${tool}`);
+    if (!response.ok) {
+      throw new Error(`Backend error for ${tool}: HTTP ${response.status}`);
     }
+
+    const json = response.data;
     if (!schema) return json as ResponseEnvelope<T>;
     const parsed = await EnvelopeSchema(schema).safeParseAsync(json);
     if (!parsed.success) {
-      throw new Error(`Schema validation failed for ${tool}: ${parsed.error.message}`);
+      throw new Error(
+        `Schema validation failed for ${tool}: ${parsed.error.message}`
+      );
     }
     return parsed.data as ResponseEnvelope<T>;
   };
@@ -99,7 +87,11 @@ export async function invokeTool<T = unknown>(
   }
 
   try {
-    const hash = createHash("sha256").update(raw).digest("hex").slice(0, 8);
+    const payloadStr = JSON.stringify(payload);
+    const hash = createHash("sha256")
+      .update(payloadStr)
+      .digest("hex")
+      .slice(0, 8);
     logger.debug("[tool retry]", { tool, correlationId, code, bodyHash: hash });
   } catch {}
 

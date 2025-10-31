@@ -1,7 +1,6 @@
 "use client";
 
 import { create } from "zustand";
-import type { StateCreator } from "zustand";
 import { devtools } from "zustand/middleware";
 
 export interface ExecutionStep {

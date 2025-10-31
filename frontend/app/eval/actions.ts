@@ -19,20 +19,13 @@ import {
   type EvalResult,
   type QuickActionType,
 } from "@/src/contracts/eval";
+import { ClerkUserSchema, type ClerkUser } from "@/src/contracts/user";
 import { requireEvalAccess } from "@/src/lib/authz";
 import { logger } from "@/src/lib/logger";
 
 // ============================================================================
 // Validation Schemas
 // ============================================================================
-
-const ClerkUserSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.string().optional(),
-});
-
-export type ClerkUser = z.infer<typeof ClerkUserSchema>;
 
 const CustomerRowSchema = z.object({
   id: z.string(),

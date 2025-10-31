@@ -1,7 +1,7 @@
 import { create } from "zustand";
-import type { StateCreator } from "zustand";
 import { devtools } from "zustand/middleware";
-import type { ClerkUser, CustomerRow } from "@/app/eval/actions";
+import type { ClerkUser } from "@/src/contracts/user";
+import type { CustomerRow } from "@/app/eval/actions";
 import type { EvalSession, QuickActionType } from "@/src/contracts/eval";
 
 export interface EvalSessionRun {
