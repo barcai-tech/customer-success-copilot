@@ -107,6 +107,32 @@ export async function listMessagesForCustomer(args: {
   return rows.reverse().map(toStoredMessage);
 }
 
+/**
+ * Load all messages for the signed-in user across all customers
+ * Used on page load to restore full conversation history
+ * Returns messages in ascending chronological order
+ */
+export async function listAllMessagesForUser(args?: {
+  limit?: number;
+}) {
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+  const limit = args?.limit && args.limit > 0 ? Math.min(args.limit, 2000) : 2000;
+  const rows: MessageRow[] = await db
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.ownerUserId, userId),
+        eq(messages.hidden, false)
+      )
+    )
+    .orderBy(desc(messages.createdAt))
+    .limit(limit);
+  // Return ascending chronological order for UI
+  return rows.reverse().map(toStoredMessage);
+}
+
 export async function hideMessage(args: { id: string }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");

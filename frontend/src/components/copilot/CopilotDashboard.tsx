@@ -44,14 +44,14 @@ type StoredMessage = {
   hidden: boolean;
 };
 
-type ListMessagesArgs = { companyExternalId: string; limit?: number };
+type ListAllMessagesArgs = { limit?: number };
 type HideTaskArgs = { companyExternalId: string; taskId: string };
 type HideTaskResult = { ok: true };
 
 interface CopilotDashboardProps {
   actions: {
     saveMessage: ServerAction<[SaveMessageArgs], StoredMessage>;
-    listMessagesForCustomer: ServerAction<[ListMessagesArgs], StoredMessage[]>;
+    listAllMessagesForUser: ServerAction<[ListAllMessagesArgs], StoredMessage[]>;
     hideTask: ServerAction<[HideTaskArgs], HideTaskResult>;
   };
 }
@@ -297,15 +297,12 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
     [actions, addMessage, setStatus, setError]
   );
 
-  // Load persisted messages when customer changes
+  // Load persisted messages on mount (once for all users' messages)
   useEffect(() => {
     (async () => {
-      if (!isSignedIn || !selectedCustomer?.id) return;
+      if (!isSignedIn) return;
       try {
-        const rows = await actions.listMessagesForCustomer({
-          companyExternalId: selectedCustomer.id,
-          limit: 200,
-        });
+        const rows = await actions.listAllMessagesForUser({ limit: 2000 });
         const mapped = rows.map((row) => {
           let plannerResult: PlannerResult | undefined;
           const rawResult = row.resultJson;
@@ -347,6 +344,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
             timestamp: createdAt,
             taskId: normalizedTaskId,
             result: plannerResult,
+            isFromHistory: true, // Mark as loaded from history, not current session
           };
         });
         // Avoid overriding in-flight UI messages (e.g., just-sent prompt)
@@ -354,7 +352,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
         if (current.length === 0) setMessages(mapped);
       } catch {}
     })();
-  }, [actions, isSignedIn, selectedCustomer?.id, setMessages]);
+  }, [actions, isSignedIn, setMessages]);
 
   // Wrapper to close sidebar on mobile when submitting
   const handleSubmitWithSidebarClose = useCallback(
@@ -468,7 +466,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
             size="icon"
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
             aria-label={isSidebarOpen ? "Hide sidebar" : "Show sidebar"}
-            className="pointer-events-auto absolute top-5 right-5 rounded-full border-1 shadow-2xl"
+            className="pointer-events-auto absolute top-5 right-5 rounded-full border shadow-2xl"
           >
             {isSidebarOpen ? (
               <X className="h-4 w-4" />

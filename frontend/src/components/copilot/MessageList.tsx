@@ -133,12 +133,34 @@ export function MessageList({
   }, [messages]);
 
   // Auto-expand tasks with assistant replies (only once when assistant arrives)
+  // For messages from history: collapse all except the latest one
   const assistantStatusKey = useMemo(
     () => tasks.map((t) => t.id + (t.assistant ? "1" : "0")).join(","),
     [tasks]
   );
 
   useEffect(() => {
+    // Separate history messages from current session
+    const historyMessages = messages.filter(
+      (m) => (m as unknown as Record<string, unknown>).isFromHistory
+    );
+    
+    // Find the latest history message task ID to keep it expanded
+    let latestHistoryTaskId: string | null = null;
+    if (historyMessages.length > 0) {
+      // Get the last task ID from history (messages are in chronological order)
+      for (let i = historyMessages.length - 1; i >= 0; i--) {
+        const taskId = historyMessages[i].taskId || historyMessages[i].id;
+        if (taskId) {
+          latestHistoryTaskId = taskId;
+          break;
+        }
+      }
+    }
+
+    const nextExpanded = new Set(expanded);
+    let changed = false;
+
     tasks.forEach((task) => {
       const hasAssistant =
         !!task.assistant ||
@@ -146,19 +168,53 @@ export function MessageList({
           (m) =>
             m.role === "assistant" && (m.taskId === task.id || m.id === task.id)
         );
-      if (hasAssistant && !autoExpandedRef.current.has(task.id)) {
+      
+      // Check if this task has history messages
+      const taskHasHistoryMessages = historyMessages.some(
+        (m) => m.taskId === task.id || m.id === task.id
+      );
+      
+      // For history messages: only expand the latest one, collapse others
+      if (hasAssistant && taskHasHistoryMessages) {
+        if (task.id === latestHistoryTaskId && !autoExpandedRef.current.has(task.id)) {
+          // Expand latest history task
+          autoExpandedRef.current.add(task.id);
+          if (!nextExpanded.has(task.id)) {
+            nextExpanded.add(task.id);
+            changed = true;
+          }
+        } else if (task.id !== latestHistoryTaskId) {
+          // Collapse older history tasks (only if they were expanded)
+          if (nextExpanded.has(task.id)) {
+            nextExpanded.delete(task.id);
+            changed = true;
+          }
+        }
+      } else if (hasAssistant && !autoExpandedRef.current.has(task.id)) {
+        // For current session messages: auto-expand when assistant arrives
         autoExpandedRef.current.add(task.id);
-        setExpanded((prev) => new Set([...prev, task.id]));
+        if (!nextExpanded.has(task.id)) {
+          nextExpanded.add(task.id);
+          changed = true;
+        }
       }
+      
       // If a task is actively running, ensure it is expanded so users see progress
       if (
         status === "running" &&
         activeAssistantId === task.id &&
-        !expanded.has(task.id)
+        !nextExpanded.has(task.id)
       ) {
-        setExpanded((prev) => new Set([...prev, task.id]));
+        nextExpanded.add(task.id);
+        changed = true;
       }
     });
+
+    // Only update state if something actually changed (defer to callback to avoid cascading)
+    if (changed) {
+      const timer = requestAnimationFrame(() => setExpanded(nextExpanded));
+      return () => cancelAnimationFrame(timer);
+    }
   }, [
     assistantStatusKey,
     tasks,

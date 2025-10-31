@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { CopilotDashboard } from "@/src/components/copilot/CopilotDashboard";
-import { saveMessage, listMessagesForCustomer, hideTask } from "./db-actions";
+import { saveMessage, listAllMessagesForUser, hideTask } from "./db-actions";
 
 export default function Home() {
   return (
@@ -12,7 +12,7 @@ export default function Home() {
           </div>
         }
       >
-        <CopilotDashboard actions={{ saveMessage, listMessagesForCustomer, hideTask }} />
+        <CopilotDashboard actions={{ saveMessage, listAllMessagesForUser, hideTask }} />
       </Suspense>
     </div>
   );

@@ -19,6 +19,7 @@ export interface ChatMessage {
   taskId?: string;
   result?: PlannerResult;
   error?: string;
+  isFromHistory?: boolean; // Mark messages loaded from history (not from current session)
 }
 
 export interface CopilotState {
