@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Clock } from "lucide-react";
+import { Card, CardContent } from "@/src/components/ui/card";
 import type { ExecutionStep } from "@/src/store/eval-detail-store";
 
 interface ExecutionStepViewProps {
@@ -157,29 +158,31 @@ export function DetailedResultLogView({ log }: DetailedResultLogViewProps) {
         </div>
 
         {/* Summary Stats */}
-        <div className="flex items-center gap-4 bg-linear-to-r from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-3 flex-1">
-            <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 shrink-0">
-              <Clock className="h-4 w-4 text-slate-700 dark:text-slate-300" />
+        <Card className="bg-linear-to-r from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+          <CardContent className="flex items-center gap-4 p-4">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="p-2 rounded-lg bg-slate-200 dark:bg-slate-800 shrink-0">
+                <Clock className="h-4 w-4 text-slate-700 dark:text-slate-300" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground font-medium">
+                  Total Duration
+                </p>
+                <p className="text-lg font-bold font-mono text-foreground">
+                  {totalSeconds.toFixed(2)}s
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
+            <div className="text-right pl-4 border-l border-slate-300 dark:border-slate-700">
               <p className="text-xs text-muted-foreground font-medium">
-                Total Duration
+                {log.steps.length}
               </p>
-              <p className="text-lg font-bold font-mono text-foreground">
-                {totalSeconds.toFixed(2)}s
+              <p className="text-xs text-muted-foreground">
+                {log.steps.length === 1 ? "step" : "steps"}
               </p>
             </div>
-          </div>
-          <div className="text-right pl-4 border-l border-slate-300 dark:border-slate-700">
-            <p className="text-xs text-muted-foreground font-medium">
-              {log.steps.length}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {log.steps.length === 1 ? "step" : "steps"}
-            </p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Execution Steps */}

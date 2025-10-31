@@ -38,6 +38,7 @@ export function MessageList({
   // Collapsible per-message details (must be declared before any early return)
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const autoExpandedRef = useRef<Set<string>>(new Set());
+  const userToggledRef = useRef<Set<string>>(new Set());
 
   // Timestamp formatter (not a hook, safe anywhere)
   const formatTimestamp = (d: Date) => {
@@ -173,6 +174,7 @@ export function MessageList({
       );
 
       // For history messages: only expand the latest one, collapse others
+      // BUT: respect manual user toggles (don't auto-collapse if user manually opened it)
       if (hasAssistant && taskHasHistoryMessages) {
         if (
           task.id === latestHistoryTaskId &&
@@ -184,8 +186,11 @@ export function MessageList({
             nextExpanded.add(task.id);
             changed = true;
           }
-        } else if (task.id !== latestHistoryTaskId) {
-          // Collapse older history tasks (only if they were expanded)
+        } else if (
+          task.id !== latestHistoryTaskId &&
+          !userToggledRef.current.has(task.id)
+        ) {
+          // Collapse older history tasks ONLY if user hasn't manually toggled them
           if (nextExpanded.has(task.id)) {
             nextExpanded.delete(task.id);
             changed = true;
@@ -247,14 +252,16 @@ export function MessageList({
         <Collapsible
           key={task.id}
           open={expanded.has(task.id)}
-          onOpenChange={(isOpen) =>
+          onOpenChange={(isOpen) => {
+            // Track that user manually toggled this message
+            userToggledRef.current.add(task.id);
             setExpanded((prev) => {
               const next = new Set(prev);
               if (isOpen) next.add(task.id);
               else next.delete(task.id);
               return next;
-            })
-          }
+            });
+          }}
           asChild
         >
           <div className="flex flex-col gap-2">

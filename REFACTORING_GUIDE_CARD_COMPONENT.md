@@ -29,6 +29,7 @@ This guide shows how to replace custom card divs with shadcn `Card` component fo
 ### 2a. ResultsSummaryCard.tsx
 
 **Before:**
+
 ```tsx
 <div
   className={cn(
@@ -41,15 +42,17 @@ This guide shows how to replace custom card divs with shadcn `Card` component fo
 ```
 
 **After:**
+
 ```tsx
 import { Card } from "@/src/components/ui/card";
 
 <Card className={cn("transition-all duration-200", priorityColors)}>
   {/* Header, metrics, signals, actions, notes */}
-</Card>
+</Card>;
 ```
 
 **Benefits:**
+
 - Removes manual border/padding/radius management
 - Consistent with other cards in the app
 - Better dark mode support
@@ -59,6 +62,7 @@ import { Card } from "@/src/components/ui/card";
 ### 2b. CustomerContextCard.tsx
 
 **Before:**
+
 ```tsx
 <div className="rounded-lg border border-foreground/10 bg-foreground/5 p-4 space-y-3">
   {/* content */}
@@ -66,14 +70,13 @@ import { Card } from "@/src/components/ui/card";
 ```
 
 **After:**
+
 ```tsx
 import { Card, CardContent } from "@/src/components/ui/card";
 
 <Card className="bg-foreground/5">
-  <CardContent className="pt-6">
-    {/* content */}
-  </CardContent>
-</Card>
+  <CardContent className="pt-6">{/* content */}</CardContent>
+</Card>;
 ```
 
 ---
@@ -81,6 +84,7 @@ import { Card, CardContent } from "@/src/components/ui/card";
 ### 2c. CopilotExecutor.tsx (Error State)
 
 **Before:**
+
 ```tsx
 <div className="flex items-start gap-3 p-4 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20">
   {/* error content */}
@@ -88,14 +92,13 @@ import { Card, CardContent } from "@/src/components/ui/card";
 ```
 
 **After:**
+
 ```tsx
 import { Card } from "@/src/components/ui/card";
 
 <Card className="border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20">
-  <div className="flex items-start gap-3 p-4">
-    {/* error content */}
-  </div>
-</Card>
+  <div className="flex items-start gap-3 p-4">{/* error content */}</div>
+</Card>;
 ```
 
 ---
@@ -103,6 +106,7 @@ import { Card } from "@/src/components/ui/card";
 ### 2d. EmptyCustomersState.tsx
 
 **Before:**
+
 ```tsx
 <div className="grid grid-cols-3 gap-3 py-4 px-4 bg-white/50 dark:bg-slate-800/30 rounded-lg border border-slate-100 dark:border-slate-700/50">
   {/* empty state content */}
@@ -110,16 +114,15 @@ import { Card } from "@/src/components/ui/card";
 ```
 
 **After:**
+
 ```tsx
 import { Card, CardContent } from "@/src/components/ui/card";
 
 <Card className="bg-white/50 dark:bg-slate-800/30 border-slate-100 dark:border-slate-700/50">
   <CardContent className="pt-6">
-    <div className="grid grid-cols-3 gap-3">
-      {/* empty state content */}
-    </div>
+    <div className="grid grid-cols-3 gap-3">{/* empty state content */}</div>
   </CardContent>
-</Card>
+</Card>;
 ```
 
 ---
@@ -127,6 +130,7 @@ import { Card, CardContent } from "@/src/components/ui/card";
 ### 2e. DetailedResultLogView.tsx
 
 **Before:**
+
 ```tsx
 <div className="flex items-center gap-4 bg-linear-to-r from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-800">
   {/* content */}
@@ -134,14 +138,13 @@ import { Card, CardContent } from "@/src/components/ui/card";
 ```
 
 **After:**
+
 ```tsx
 import { Card } from "@/src/components/ui/card";
 
 <Card className="bg-linear-to-r from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 border-slate-200 dark:border-slate-800">
-  <div className="flex items-center gap-4 p-4">
-    {/* content */}
-  </div>
-</Card>
+  <div className="flex items-center gap-4 p-4">{/* content */}</div>
+</Card>;
 ```
 
 ---
@@ -198,14 +201,17 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/src/components/ui/c
 ## Before/After Comparison
 
 ### Visual Consistency
+
 - **Before:** Mix of custom divs with different padding/border values
 - **After:** Unified Card component with consistent styling
 
 ### Code Maintainability
+
 - **Before:** `className="rounded-lg border p-4 bg-..."` repeated 5+ times
 - **After:** `<Card>` component, theme changes in one place
 
 ### Dark Mode
+
 - **Before:** Manual `dark:` prefixes for each card
 - **After:** Card component handles dark mode automatically
 
@@ -214,6 +220,7 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/src/components/ui/c
 ## Rollout Plan
 
 **Option 1: Gradual (Recommended)**
+
 1. Update `ResultsSummaryCard.tsx` (most visible)
 2. Test in dev/staging
 3. Update remaining cards
@@ -221,6 +228,7 @@ import { Card, CardHeader, CardContent, CardFooter } from "@/src/components/ui/c
 5. Deploy
 
 **Option 2: All at Once**
+
 1. Update all files
 2. Run full test suite
 3. Deploy
