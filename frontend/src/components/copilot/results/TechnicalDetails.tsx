@@ -39,8 +39,8 @@ export function TechnicalDetails({
   })();
 
   return (
-    <div className="rounded-lg border bg-card p-6 space-y-4">
-      <div className="flex items-center gap-2">
+    <div className="rounded-lg border bg-card p-3 sm:p-6 space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
         <Wrench className="h-5 w-5 text-primary" />
         <h3 className="font-semibold">Technical Details</h3>
         {result.planSource && (

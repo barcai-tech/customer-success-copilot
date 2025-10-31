@@ -47,11 +47,16 @@ export function useEvalStreaming() {
       addLog("", "info");
 
       try {
-        const selectedUserId = useEvalStore.getState().selectedUserId || undefined;
+        const selectedUserId =
+          useEvalStore.getState().selectedUserId || undefined;
         const response = await fetch("/api/eval/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ customerIds, actions, ownerUserId: selectedUserId }),
+          body: JSON.stringify({
+            customerIds,
+            actions,
+            ownerUserId: selectedUserId,
+          }),
         });
 
         if (!response.ok) {
@@ -178,10 +183,10 @@ export function useEvalStreaming() {
                   } else {
                     addLog(`✗ ${data.name} - ${data.error}`, "error");
                     if (currentResultId) {
-                    logger.debug(
-                      "[useEvalStreaming] Adding error step to",
-                      currentResultId
-                    );
+                      logger.debug(
+                        "[useEvalStreaming] Adding error step to",
+                        currentResultId
+                      );
                       addStep(currentResultId, {
                         title: `Tool: ${data.name}`,
                         description: `Failed: ${data.error}`,

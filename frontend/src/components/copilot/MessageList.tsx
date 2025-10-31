@@ -2,12 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bot, User, Trash2, ChevronDown } from "lucide-react";
-// duplicate removed
-import { HealthSummary } from "./results/HealthSummary";
 import { EmailDraftCard } from "./results/EmailDraftCard";
-import { ActionItems } from "./results/ActionItems";
 import { TechnicalDetails } from "./results/TechnicalDetails";
 import { ExecutionPlan } from "./results/ExecutionPlan";
+import { ResultsSummaryCard } from "./results/ResultsSummaryCard";
 import { Button } from "@/src/components/ui/button";
 import {
   AlertDialog,
@@ -40,6 +38,7 @@ export function MessageList({
   // Collapsible per-message details (must be declared before any early return)
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const autoExpandedRef = useRef<Set<string>>(new Set());
+  const userToggledRef = useRef<Set<string>>(new Set());
 
   // Timestamp formatter (not a hook, safe anywhere)
   const formatTimestamp = (d: Date) => {
@@ -133,12 +132,34 @@ export function MessageList({
   }, [messages]);
 
   // Auto-expand tasks with assistant replies (only once when assistant arrives)
+  // For messages from history: collapse all except the latest one
   const assistantStatusKey = useMemo(
     () => tasks.map((t) => t.id + (t.assistant ? "1" : "0")).join(","),
     [tasks]
   );
 
   useEffect(() => {
+    // Separate history messages from current session
+    const historyMessages = messages.filter(
+      (m) => (m as unknown as Record<string, unknown>).isFromHistory
+    );
+
+    // Find the latest history message task ID to keep it expanded
+    let latestHistoryTaskId: string | null = null;
+    if (historyMessages.length > 0) {
+      // Get the last task ID from history (messages are in chronological order)
+      for (let i = historyMessages.length - 1; i >= 0; i--) {
+        const taskId = historyMessages[i].taskId || historyMessages[i].id;
+        if (taskId) {
+          latestHistoryTaskId = taskId;
+          break;
+        }
+      }
+    }
+
+    const nextExpanded = new Set(expanded);
+    let changed = false;
+
     tasks.forEach((task) => {
       const hasAssistant =
         !!task.assistant ||
@@ -146,19 +167,60 @@ export function MessageList({
           (m) =>
             m.role === "assistant" && (m.taskId === task.id || m.id === task.id)
         );
-      if (hasAssistant && !autoExpandedRef.current.has(task.id)) {
+
+      // Check if this task has history messages
+      const taskHasHistoryMessages = historyMessages.some(
+        (m) => m.taskId === task.id || m.id === task.id
+      );
+
+      // For history messages: only expand the latest one, collapse others
+      // BUT: respect manual user toggles (don't auto-collapse if user manually opened it)
+      if (hasAssistant && taskHasHistoryMessages) {
+        if (
+          task.id === latestHistoryTaskId &&
+          !autoExpandedRef.current.has(task.id)
+        ) {
+          // Expand latest history task
+          autoExpandedRef.current.add(task.id);
+          if (!nextExpanded.has(task.id)) {
+            nextExpanded.add(task.id);
+            changed = true;
+          }
+        } else if (
+          task.id !== latestHistoryTaskId &&
+          !userToggledRef.current.has(task.id)
+        ) {
+          // Collapse older history tasks ONLY if user hasn't manually toggled them
+          if (nextExpanded.has(task.id)) {
+            nextExpanded.delete(task.id);
+            changed = true;
+          }
+        }
+      } else if (hasAssistant && !autoExpandedRef.current.has(task.id)) {
+        // For current session messages: auto-expand when assistant arrives
         autoExpandedRef.current.add(task.id);
-        setExpanded((prev) => new Set([...prev, task.id]));
+        if (!nextExpanded.has(task.id)) {
+          nextExpanded.add(task.id);
+          changed = true;
+        }
       }
+
       // If a task is actively running, ensure it is expanded so users see progress
       if (
         status === "running" &&
         activeAssistantId === task.id &&
-        !expanded.has(task.id)
+        !nextExpanded.has(task.id)
       ) {
-        setExpanded((prev) => new Set([...prev, task.id]));
+        nextExpanded.add(task.id);
+        changed = true;
       }
     });
+
+    // Only update state if something actually changed (defer to callback to avoid cascading)
+    if (changed) {
+      const timer = requestAnimationFrame(() => setExpanded(nextExpanded));
+      return () => cancelAnimationFrame(timer);
+    }
   }, [
     assistantStatusKey,
     tasks,
@@ -190,14 +252,16 @@ export function MessageList({
         <Collapsible
           key={task.id}
           open={expanded.has(task.id)}
-          onOpenChange={(isOpen) =>
+          onOpenChange={(isOpen) => {
+            // Track that user manually toggled this message
+            userToggledRef.current.add(task.id);
             setExpanded((prev) => {
               const next = new Set(prev);
               if (isOpen) next.add(task.id);
               else next.delete(task.id);
               return next;
-            })
-          }
+            });
+          }}
           asChild
         >
           <div className="flex flex-col gap-2">
@@ -309,8 +373,9 @@ export function MessageList({
                           />
                         )}
 
-                      {task.assistant.result.health && (
-                        <HealthSummary health={task.assistant.result.health} />
+                      {(task.assistant.result.health ||
+                        task.assistant.result.actions) && (
+                        <ResultsSummaryCard result={task.assistant.result} />
                       )}
 
                       {task.assistant.result.emailDraft && (
@@ -318,30 +383,6 @@ export function MessageList({
                           email={task.assistant.result.emailDraft}
                         />
                       )}
-
-                      {(() => {
-                        const r = task.assistant!.result;
-                        const isRunning =
-                          status === "running" && activeAssistantId === task.id;
-                        const hasActions = !!(
-                          r?.actions && r.actions.length > 0
-                        );
-                        const summaryIsDuplicate = !!(
-                          r?.summary && r.summary === task.user?.content
-                        );
-                        const shouldShow =
-                          isRunning ||
-                          hasActions ||
-                          (r?.summary && !summaryIsDuplicate);
-                        return shouldShow ? (
-                          <ActionItems
-                            summary={r?.summary}
-                            actions={r?.actions}
-                            notes={r?.notes}
-                            isLoading={isRunning}
-                          />
-                        ) : null;
-                      })()}
 
                       <TechnicalDetails
                         result={task.assistant!.result}

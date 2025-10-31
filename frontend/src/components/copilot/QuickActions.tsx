@@ -1,34 +1,50 @@
 "use client";
 
-import {
-  Activity,
-  FileText,
-  Mail,
-  PresentationIcon,
-  AlertTriangle,
-} from "lucide-react";
+import { useEffect, useState } from "react";
 import { useCopilotStore, TASKS } from "../../store/copilot-store";
 import type { TaskType } from "../../store/copilot-store";
-
-const TASK_ICONS = {
-  health: Activity,
-  renewal: FileText,
-  qbr: PresentationIcon,
-  email: Mail,
-  churn: AlertTriangle,
-};
+import { CustomerContextCard } from "./CustomerContextCard";
+import { EnhancedQuickActionCard } from "./EnhancedQuickActionCard";
+import { getCustomerDetails } from "@/app/dashboard/actions";
 
 interface QuickActionsProps {
-  onActionClick?: (taskType: TaskType, prompt: string) => void;
   disabled?: boolean;
 }
 
-export function QuickActions({
-  onActionClick,
-  disabled = false,
-}: QuickActionsProps) {
+interface CustomerData {
+  company?: { id: string; name: string };
+  contract?: { renewalDate?: string | Date; arr?: number } | null;
+  tickets?: { openTickets?: number | null; recentTickets?: unknown[] };
+  usage?: {
+    trend?: string | null;
+    avgDailyUsers?: number;
+    sparkline?: number[];
+  };
+}
+
+export function QuickActions({ disabled = false }: QuickActionsProps) {
   const selectedCustomer = useCopilotStore((state) => state.selectedCustomer);
   const setInputValue = useCopilotStore((state) => state.setInputValue);
+  const [customerData, setCustomerData] = useState<CustomerData | null>(null);
+
+  // Fetch customer details when customer changes
+  useEffect(() => {
+    if (!selectedCustomer?.id) {
+      return;
+    }
+
+    const fetchDetails = async () => {
+      try {
+        const details = await getCustomerDetails(selectedCustomer.id);
+        setCustomerData(details);
+      } catch (error) {
+        console.error("Failed to fetch customer details:", error);
+        setCustomerData(null);
+      }
+    };
+
+    fetchDetails();
+  }, [selectedCustomer?.id]);
 
   const handleQuickAction = (taskType: TaskType) => {
     const customerName = selectedCustomer?.name || "[Customer]";
@@ -53,54 +69,55 @@ export function QuickActions({
     }
 
     setInputValue(prompt);
-    onActionClick?.(taskType, prompt);
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-foreground">Quick Actions</h3>
-        <span className="text-xs text-muted-foreground">
-          {selectedCustomer
-            ? `for ${selectedCustomer.name}`
-            : "Select a customer"}
-        </span>
-      </div>
+    <div className="space-y-4">
+      {/* Customer Context Card */}
+      <CustomerContextCard
+        customer={selectedCustomer}
+        health={undefined} // Calculate from planner results if available
+        trend={customerData?.usage?.trend ?? null}
+        renewalDate={customerData?.contract?.renewalDate ?? null}
+        openTickets={customerData?.tickets?.openTickets ?? null}
+      />
 
-      <div className="grid grid-cols-1 gap-2">
-        {(Object.keys(TASKS) as TaskType[]).map((taskType) => {
-          const task = TASKS[taskType];
-          const Icon = TASK_ICONS[taskType];
+      {/* Quick Actions Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">
+            Quick Actions
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            {selectedCustomer
+              ? `for ${selectedCustomer.name}`
+              : "Select a customer"}
+          </span>
+        </div>
 
-          return (
-            <button
-              key={taskType}
-              type="button"
-              onClick={() => handleQuickAction(taskType)}
-              disabled={disabled}
-              className="flex items-start gap-3 rounded-lg border border-border bg-card p-3 text-left transition-all hover:border-primary hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <div className="shrink-0 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-sm font-medium text-foreground mb-1">
-                  {task.label}
-                </h4>
-                <p className="text-xs text-muted-foreground line-clamp-2">
-                  {task.description}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
+        <div className="grid grid-cols-1 gap-2 w-full">
+          {(Object.keys(TASKS) as TaskType[]).map((taskType) => {
+            const task = TASKS[taskType];
 
-      <div className="pt-2 border-t border-border">
-        <p className="text-xs text-muted-foreground">
-          💡 Click any action to populate the chat input, or type your own
-          question
-        </p>
+            return (
+              <EnhancedQuickActionCard
+                key={taskType}
+                taskType={taskType}
+                label={task.label}
+                description={task.description}
+                onClick={() => handleQuickAction(taskType)}
+                disabled={disabled}
+              />
+            );
+          })}
+        </div>
+
+        <div className="pt-2 border-t border-border">
+          <p className="text-xs text-muted-foreground">
+            💡 Click any action to populate the chat input, or type your own
+            question
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -14,7 +14,8 @@ import { ActionSelector } from "./ActionSelector";
 import { ResultsDisplay } from "./ResultsDisplay";
 import { EvalLogs } from "./EvalLogs";
 import { logger } from "@/src/lib/logger";
-import type { ClerkUser, CustomerRow } from "@/app/eval/actions";
+import type { ClerkUser } from "@/src/contracts/user";
+import type { CustomerRow } from "@/app/eval/actions";
 
 type ServerAction<TArgs extends unknown[], TResult> = (
   ...args: TArgs

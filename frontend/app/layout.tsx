@@ -1,10 +1,12 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "@/src/components/Header";
 import Footer from "@/src/components/Footer";
 import Providers from "@/src/components/Providers";
 import { Toaster } from "@/src/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 // Primary font - Inter (used for body text)
 const inter = Inter({
@@ -30,6 +32,14 @@ const geistMono = Geist_Mono({
   preload: false, // Don't preload - load on demand
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   title: "Customer Success Copilot",
   description: "AI-powered customer success intelligence platform",
@@ -48,7 +58,7 @@ export default function RootLayout({
     >
       <body
         suppressHydrationWarning
-        className="flex flex-col min-h-screen w-full"
+        className="flex flex-col h-full w-full overflow-hidden"
       >
         <Providers>
           <Header />
@@ -61,6 +71,10 @@ export default function RootLayout({
 
           {/* Toast Notifications */}
           <Toaster position="top-center" />
+
+          {/* Vercel Analytics and Speed Insights (enabled automatically in production) */}
+          <Analytics />
+          <SpeedInsights />
         </Providers>
       </body>
     </html>

@@ -5,17 +5,43 @@ from urllib.parse import urlparse, unquote, parse_qs
 import ssl
 import pg8000
 
+try:
+    import boto3  # type: ignore
+except Exception:
+    boto3 = None
 
-def _must_env(name: str) -> str:
-    v = os.environ.get(name)
-    if not v:
-        raise RuntimeError(f"Missing env: {name}")
-    return v
+
+_DB_URL_CACHE: Optional[str] = None
+
+
+def _must_db_url() -> str:
+    """Resolve DATABASE_URL from env or SSM (by parameter name). Caches result."""
+    global _DB_URL_CACHE
+    if _DB_URL_CACHE:
+        return _DB_URL_CACHE
+
+    direct = os.environ.get("DATABASE_URL")
+    if direct:
+        _DB_URL_CACHE = direct
+        return direct
+
+    # Fallback to SSM parameter name if provided
+    param_name = os.environ.get("DATABASE_URL_PARAM_NAME")
+    if param_name and boto3:
+        ssm = boto3.client("ssm")
+        resp = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        value = resp.get("Parameter", {}).get("Value")
+        if not value:
+            raise RuntimeError("Server misconfigured: empty DATABASE_URL in SSM parameter")
+        _DB_URL_CACHE = value
+        return value
+
+    raise RuntimeError("Missing database configuration: set DATABASE_URL or DATABASE_URL_PARAM_NAME")
 
 
 def get_conn():
     # Build pg8000 connection from DATABASE_URL (postgresql://user:pass@host:port/db?sslmode=require)
-    dsn = _must_env("DATABASE_URL")
+    dsn = _must_db_url()
     u = urlparse(dsn)
     if u.scheme not in ("postgresql", "postgres"):
         raise RuntimeError("Unsupported DATABASE_URL scheme")

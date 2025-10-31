@@ -1,4 +1,5 @@
 import { EvalDashboard } from "@/src/components/eval/EvalDashboard";
+import { ErrorBoundary } from "@/src/components/ErrorBoundary";
 import { listAllUsers, getCustomersForUser } from "./actions";
 import { requireEvalAccess } from "@/src/lib/authz";
 import { redirect } from "next/navigation";
@@ -39,12 +40,14 @@ export default async function EvalPage() {
           Pass server action references into the client component so the route
           mounts the actions endpoint at /eval, avoiding 404 on POST /eval.
         */}
-        <EvalDashboard
-          actions={{
-            listAllUsers,
-            getCustomersForUser,
-          }}
-        />
+        <ErrorBoundary>
+          <EvalDashboard
+            actions={{
+              listAllUsers,
+              getCustomersForUser,
+            }}
+          />
+        </ErrorBoundary>
       </div>
     </div>
   );

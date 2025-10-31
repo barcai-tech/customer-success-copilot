@@ -8,8 +8,22 @@ profile = "cs-copilot"
 confirm_changeset = true
 capabilities = "CAPABILITY_IAM"
 disable_rollback = true
-parameter_overrides = "StageName=\"dev\" AllowedOrigin=\"http://localhost:3000\" HmacParamName=\"/copilot/hmac/v1\" DataBucket=\"barcai-cs-success-copilot\" DatabaseUrl=\"\""
+parameter_overrides = "StageName=\"dev\" AllowedOrigin=\"http://localhost:3000\" HmacParamName=\"/copilot/hmac/v1\" DatabaseUrlParamName=\"/copilot/database/url\" DatabaseUrlParamVersion=\"1\" EnableMonitoring=\"false\" LogRetentionDays=\"14\""
 image_repositories = []
 
 [default.global.parameters]
+region = "ap-southeast-1"
+
+[prod.deploy.parameters]
+stack_name = "cs-copilot-backend-prod"
+resolve_s3 = true
+s3_prefix = "cs-copilot-backend-prod"
+profile = "cs-copilot"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+parameter_overrides = "StageName=\"prod\" AllowedOrigin=\"https://customer-success-copilot.barcai-tech.com\" HmacParamName=\"/copilot/prod/hmac/v1\" DatabaseUrlParamName=\"/copilot/prod/database/url\" DatabaseUrlParamVersion=\"1\" EnableMonitoring=\"true\" LogRetentionDays=\"14\""
+image_repositories = []
+
+[prod.global.parameters]
 region = "ap-southeast-1"

@@ -6,7 +6,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/src/components/ui/select";
-import type { ClerkUser } from "@/app/eval/actions";
+import type { ClerkUser } from "@/src/contracts/user";
 
 interface UserSelectorProps {
   users: ClerkUser[];

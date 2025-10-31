@@ -3,6 +3,7 @@
 import { Play, AlertCircle, Sparkles } from "lucide-react";
 import { useCopilotStore } from "@/src/store/copilot-store";
 import { Button } from "@/src/components/ui/button";
+import { Card } from "@/src/components/ui/card";
 import { runPlannerAction } from "@/app/actions";
 import { HealthSummary } from "./results/HealthSummary";
 import { EmailDraftCard } from "./results/EmailDraftCard";
@@ -49,49 +50,53 @@ export function CopilotExecutor() {
   return (
     <div className="space-y-6">
       {/* Execute Button */}
-      <div className="flex items-center justify-between p-6 rounded-lg border bg-card">
-        <div className="space-y-1">
-          <h3 className="font-semibold">Ready to Execute</h3>
-          <p className="text-sm text-muted-foreground">
-            {selectedCustomer && selectedTask
-              ? `Run ${selectedTask} analysis for ${selectedCustomer.name}`
-              : "Select a customer and task to continue"}
-          </p>
-        </div>
+      <Card>
+        <div className="flex items-center justify-between p-6">
+          <div className="space-y-1">
+            <h3 className="font-semibold">Ready to Execute</h3>
+            <p className="text-sm text-muted-foreground">
+              {selectedCustomer && selectedTask
+                ? `Run ${selectedTask} analysis for ${selectedCustomer.name}`
+                : "Select a customer and task to continue"}
+            </p>
+          </div>
 
-        <Button
-          onClick={handleExecute}
-          disabled={!canExecute}
-          size="lg"
-          className="gap-2"
-        >
-          {status === "running" ? (
-            <>
-              <Sparkles className="h-5 w-5 animate-pulse" />
-              Running...
-            </>
-          ) : (
-            <>
-              <Play className="h-5 w-5" />
-              Run Copilot
-            </>
-          )}
-        </Button>
-      </div>
+          <Button
+            onClick={handleExecute}
+            disabled={!canExecute}
+            size="lg"
+            className="gap-2"
+          >
+            {status === "running" ? (
+              <>
+                <Sparkles className="h-5 w-5 animate-pulse" />
+                Running...
+              </>
+            ) : (
+              <>
+                <Play className="h-5 w-5" />
+                Run Copilot
+              </>
+            )}
+          </Button>
+        </div>
+      </Card>
 
       {/* Error Display */}
       {error && (
-        <div className="flex items-start gap-3 p-4 rounded-lg border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20">
-          <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <div className="font-medium text-red-900 dark:text-red-100">
-              Execution Error
-            </div>
-            <div className="text-sm text-red-700 dark:text-red-300">
-              {error}
+        <Card className="border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20">
+          <div className="flex items-start gap-3 p-4">
+            <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="font-medium text-red-900 dark:text-red-100">
+                Execution Error
+              </div>
+              <div className="text-sm text-red-700 dark:text-red-300">
+                {error}
+              </div>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Results Display */}

@@ -13,16 +13,46 @@ Parameters:
     Type: String
     Default: /copilot/hmac/v1
     Description: "SSM Parameter name for HMAC secret (SecureString recommended)"
-  DataBucket:
+  DatabaseUrlParamName:
     Type: String
     Default: ""
-  DatabaseUrl:
+    Description: "SSM Parameter name for the Postgres connection string (SecureString recommended)"
+  DatabaseUrlParamVersion:
+    Type: String
+    Default: "1"
+    Description: "Version of the SSM parameter storing the Postgres connection string"
+  EnableMonitoring:
+    Type: String
+    Default: "false"
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: "Enable creation of log retention and basic CloudWatch alarms"
+  LogRetentionDays:
+    Type: Number
+    Default: 14
+    Description: "Retention in days for Lambda log groups (when monitoring enabled)"
+  AlarmErrorsThreshold:
+    Type: Number
+    Default: 1
+    Description: "Threshold for Lambda Errors metric (sum over period)"
+  AlarmEvaluationPeriods:
+    Type: Number
+    Default: 1
+    Description: "Evaluation periods for error alarm"
+  AlarmPeriodSeconds:
+    Type: Number
+    Default: 300
+    Description: "Metric period in seconds for error alarm"
+  AlarmTopicArn:
     Type: String
     Default: ""
-    Description: "Postgres connection string for Neon (e.g., postgresql://.../?sslmode=require)"
+    Description: "Optional SNS topic ARN to notify on alarms"
 
 Conditions:
-  HasDataBucket: !Not [!Equals [!Ref DataBucket, ""]]
+  HasDatabaseUrlParam: !Not [!Equals [!Ref DatabaseUrlParamName, ""]]
+  MonitoringEnabled: !Equals [!Ref EnableMonitoring, "true"]
+  HasAlarmTopic: !Not [!Equals [!Ref AlarmTopicArn, ""]]
 
 Globals:
   Function:
@@ -35,8 +65,9 @@ Globals:
         ALLOWED_ORIGIN: !Ref AllowedOrigin
         HMAC_PARAM_NAME: !Ref HmacParamName
         HMAC_SECRET: ""
-        DATA_BUCKET: !If [HasDataBucket, !Ref DataBucket, ""]
-        DATABASE_URL: !Ref DatabaseUrl
+        DATABASE_URL: ""  # resolved at runtime via boto3 when DATABASE_URL_PARAM_NAME is set
+        DATABASE_URL_PARAM_NAME: !If [HasDatabaseUrlParam, !Ref DatabaseUrlParamName, ""]
+        DATABASE_URL_PARAM_VERSION: !If [HasDatabaseUrlParam, !Ref DatabaseUrlParamVersion, ""]
 
 Resources:
   CommonLayer:
@@ -76,14 +107,37 @@ Resources:
             - Effect: Allow
               Action: ["ssm:GetParameter"]
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
-        - !If
-          - HasDataBucket
-          - Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: ["s3:GetObject"]
-                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
-          - !Ref "AWS::NoValue"
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !If
+                - HasDatabaseUrlParam
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${DatabaseUrlParamName}"
+                - !Ref "AWS::NoValue"
+
+  GetCustomerUsageLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: MonitoringEnabled
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GetCustomerUsage}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  GetCustomerUsageErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MonitoringEnabled
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-GetCustomerUsage-Errors"
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GetCustomerUsage
+      Statistic: Sum
+      Period: !Ref AlarmPeriodSeconds
+      EvaluationPeriods: !Ref AlarmEvaluationPeriods
+      Threshold: !Ref AlarmErrorsThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
 
   GetRecentTickets:
     Type: AWS::Serverless::Function
@@ -104,14 +158,37 @@ Resources:
             - Effect: Allow
               Action: ["ssm:GetParameter"]
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
-        - !If
-          - HasDataBucket
-          - Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: ["s3:GetObject"]
-                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
-          - !Ref "AWS::NoValue"
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !If
+                - HasDatabaseUrlParam
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${DatabaseUrlParamName}"
+                - !Ref "AWS::NoValue"
+
+  GetRecentTicketsLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: MonitoringEnabled
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GetRecentTickets}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  GetRecentTicketsErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MonitoringEnabled
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-GetRecentTickets-Errors"
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GetRecentTickets
+      Statistic: Sum
+      Period: !Ref AlarmPeriodSeconds
+      EvaluationPeriods: !Ref AlarmEvaluationPeriods
+      Threshold: !Ref AlarmErrorsThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
 
   GetContractInfo:
     Type: AWS::Serverless::Function
@@ -132,14 +209,37 @@ Resources:
             - Effect: Allow
               Action: ["ssm:GetParameter"]
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
-        - !If
-          - HasDataBucket
-          - Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: ["s3:GetObject"]
-                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
-          - !Ref "AWS::NoValue"
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !If
+                - HasDatabaseUrlParam
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${DatabaseUrlParamName}"
+                - !Ref "AWS::NoValue"
+
+  GetContractInfoLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: MonitoringEnabled
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GetContractInfo}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  GetContractInfoErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MonitoringEnabled
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-GetContractInfo-Errors"
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GetContractInfo
+      Statistic: Sum
+      Period: !Ref AlarmPeriodSeconds
+      EvaluationPeriods: !Ref AlarmEvaluationPeriods
+      Threshold: !Ref AlarmErrorsThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
 
   CalculateHealth:
     Type: AWS::Serverless::Function
@@ -160,14 +260,37 @@ Resources:
             - Effect: Allow
               Action: ["ssm:GetParameter"]
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
-        - !If
-          - HasDataBucket
-          - Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: ["s3:GetObject"]
-                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
-          - !Ref "AWS::NoValue"
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !If
+                - HasDatabaseUrlParam
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${DatabaseUrlParamName}"
+                - !Ref "AWS::NoValue"
+
+  CalculateHealthLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: MonitoringEnabled
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${CalculateHealth}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  CalculateHealthErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MonitoringEnabled
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-CalculateHealth-Errors"
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref CalculateHealth
+      Statistic: Sum
+      Period: !Ref AlarmPeriodSeconds
+      EvaluationPeriods: !Ref AlarmEvaluationPeriods
+      Threshold: !Ref AlarmErrorsThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
 
   GenerateEmail:
     Type: AWS::Serverless::Function
@@ -188,14 +311,37 @@ Resources:
             - Effect: Allow
               Action: ["ssm:GetParameter"]
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
-        - !If
-          - HasDataBucket
-          - Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: ["s3:GetObject"]
-                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
-          - !Ref "AWS::NoValue"
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !If
+                - HasDatabaseUrlParam
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${DatabaseUrlParamName}"
+                - !Ref "AWS::NoValue"
+
+  GenerateEmailLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: MonitoringEnabled
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GenerateEmail}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  GenerateEmailErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MonitoringEnabled
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-GenerateEmail-Errors"
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GenerateEmail
+      Statistic: Sum
+      Period: !Ref AlarmPeriodSeconds
+      EvaluationPeriods: !Ref AlarmEvaluationPeriods
+      Threshold: !Ref AlarmErrorsThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
 
   GenerateQbrOutline:
     Type: AWS::Serverless::Function
@@ -216,14 +362,37 @@ Resources:
             - Effect: Allow
               Action: ["ssm:GetParameter"]
               Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${HmacParamName}"
-        - !If
-          - HasDataBucket
-          - Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action: ["s3:GetObject"]
-                Resource: !Sub "arn:aws:s3:::${DataBucket}/*"
-          - !Ref "AWS::NoValue"
+            - Effect: Allow
+              Action: ["ssm:GetParameter"]
+              Resource: !If
+                - HasDatabaseUrlParam
+                - !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${DatabaseUrlParamName}"
+                - !Ref "AWS::NoValue"
+
+  GenerateQbrOutlineLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: MonitoringEnabled
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GenerateQbrOutline}"
+      RetentionInDays: !Ref LogRetentionDays
+
+  GenerateQbrOutlineErrorsAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MonitoringEnabled
+    Properties:
+      AlarmName: !Sub "${AWS::StackName}-GenerateQbrOutline-Errors"
+      Namespace: "AWS/Lambda"
+      MetricName: "Errors"
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref GenerateQbrOutline
+      Statistic: Sum
+      Period: !Ref AlarmPeriodSeconds
+      EvaluationPeriods: !Ref AlarmEvaluationPeriods
+      Threshold: !Ref AlarmErrorsThreshold
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: !If [HasAlarmTopic, [!Ref AlarmTopicArn], []]
 
 Outputs:
   ApiUrl:

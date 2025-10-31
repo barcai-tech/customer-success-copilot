@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/src/components/ui/button";
-import { Menu, TrendingUp } from "lucide-react";
+import { Menu, TrendingUp, LogIn } from "lucide-react";
 import PageContainer from "@/src/components/PageContainer";
 import { NavMenu } from "@/src/components/NavMenu";
 import MobileMenu from "@/src/components/MobileMenu";
@@ -14,7 +14,7 @@ export default function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 backdrop-blur bg-background/75 border-b border-slate-200/60 dark:border-slate-800/60">
+    <header className="sticky top-0 z-60 backdrop-blur bg-background/75 border-b border-slate-200/60 dark:border-slate-800/60">
       <PageContainer className="h-16 flex items-center justify-between">
         {/* Mobile Menu Button */}
         <Button
@@ -37,15 +37,23 @@ export default function Header() {
         </Link>
 
         {/* Desktop Nav */}
-        <div className="hidden sm:flex items-center space-x-4">
+        <div className="hidden sm:flex items-center gap-2">
           <NavMenu />
+          <div className="w-px h-6 bg-foreground/10" />
           <ModeToggle />
           <SignedIn>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
           <SignedOut>
             <SignInButton>
-              <Button variant="default" size="sm">Sign in</Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-foreground hover:bg-foreground/10"
+                aria-label="Sign in"
+              >
+                <LogIn className="h-5 w-5" />
+              </Button>
             </SignInButton>
           </SignedOut>
         </div>
