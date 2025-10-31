@@ -25,7 +25,7 @@ import { CustomerFormDialog } from "./CustomerFormDialog";
 import { CustomerActionsMenu } from "./CustomerActionsMenu";
 import { TrendBadge } from "./TrendBadge";
 import { EmptyCustomersState } from "./EmptyCustomersState";
-import { seedGlobalCustomersAsAdmin } from "@/app/dashboard/actions";
+import { seedDemoCustomersAction, listCustomersForUser } from "@/app/dashboard/actions";
 import { ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Select,
@@ -56,11 +56,9 @@ export default function CustomersTable({
   const handleSeedDemo = async () => {
     setIsLoadingDemo(true);
     try {
-      await seedGlobalCustomersAsAdmin();
+      await seedDemoCustomersAction();
       // Refetch data after seeding
-      const newRows = await import("@/app/dashboard/actions").then(
-        (m) => m.listCustomersForUser()
-      );
+      const newRows = await listCustomersForUser();
       setRows(newRows || []);
     } catch (error) {
       console.error("Failed to seed demo data:", error);
