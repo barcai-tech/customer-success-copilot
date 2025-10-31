@@ -14,10 +14,7 @@ export const sanitizeString = (val: string) => val.replace(/\0/g, "").trim();
  * Sanitize generic text (backward compatible)
  */
 export function sanitizeText(input: string, maxLength = 500): string {
-  return input
-    .replace(/\0/g, "")
-    .trim()
-    .slice(0, maxLength);
+  return input.replace(/\0/g, "").trim().slice(0, maxLength);
 }
 
 /**
