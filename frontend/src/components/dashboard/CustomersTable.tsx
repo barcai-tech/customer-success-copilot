@@ -23,6 +23,7 @@ import { useCustomerStore, type CustomerRow } from "@/src/store/customer-store";
 import { DeleteCustomerDialog } from "./DeleteCustomerDialog";
 import { CustomerFormDialog } from "./CustomerFormDialog";
 import { CustomerActionsMenu } from "./CustomerActionsMenu";
+import { TrendBadge } from "./TrendBadge";
 import { ChevronsUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Select,
@@ -105,7 +106,9 @@ export default function CustomersTable({
           const rb = TREND_RANK[b] ?? -1;
           return ra === rb ? 0 : ra < rb ? -1 : 1;
         },
-        cell: ({ getValue }) => getValue<string | null>() ?? "-",
+        cell: ({ getValue }) => (
+          <TrendBadge trend={getValue<string | null>()} />
+        ),
       },
       {
         accessorKey: "openTickets",
@@ -200,12 +203,17 @@ export default function CustomersTable({
   return (
     <div className="px-6 py-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Customer List</h3>
-        <Button onClick={openAddDialog} className="bg-blue-600 hover:bg-blue-700 text-white">
+        <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+          Customer List
+        </h3>
+        <Button
+          onClick={openAddDialog}
+          className="bg-blue-600 hover:bg-blue-700 text-white"
+        >
           + Add Customer
         </Button>
       </div>
-      
+
       {rows.length === 0 ? (
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-8 text-center">
           <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -217,9 +225,15 @@ export default function CustomersTable({
           <Table>
             <TableHeader>
               {table.getHeaderGroups().map((hg) => (
-                <TableRow key={hg.id} className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                <TableRow
+                  key={hg.id}
+                  className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50"
+                >
                   {hg.headers.map((header) => (
-                    <TableHead key={header.id} className="text-xs font-semibold text-slate-700 dark:text-slate-300 px-6 py-3">
+                    <TableHead
+                      key={header.id}
+                      className="text-xs font-semibold text-slate-700 dark:text-slate-300 px-6 py-3"
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -233,13 +247,19 @@ export default function CustomersTable({
             </TableHeader>
             <TableBody>
               {table.getRowModel().rows.map((row) => (
-                <TableRow 
+                <TableRow
                   key={row.id}
                   className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-blue-50/50 dark:hover:bg-slate-800/30 transition-colors"
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-sm text-slate-700 dark:text-slate-300 px-6 py-3">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    <TableCell
+                      key={cell.id}
+                      className="text-sm text-slate-700 dark:text-slate-300 px-6 py-3"
+                    >
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
