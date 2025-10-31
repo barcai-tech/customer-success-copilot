@@ -5,8 +5,14 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  // Suppress Clerk development-key warnings in development
+  // Debug: Check Clerk configuration and suppress development warnings
   useEffect(() => {
+    const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+    console.log("Clerk Publishable Key available:", !!publishableKey);
+    if (!publishableKey) {
+      console.error("ERROR: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is not set!");
+    }
+
     if (process.env.NODE_ENV !== "development") return;
 
     const originalWarn = console.warn;

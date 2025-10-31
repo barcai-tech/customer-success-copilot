@@ -64,6 +64,18 @@ export default function Header() {
           <SignedIn>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>
+          <SignedOut>
+            <SignInButton>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-foreground hover:bg-foreground/10"
+                aria-label="Sign in"
+              >
+                <LogIn className="h-5 w-5" />
+              </Button>
+            </SignInButton>
+          </SignedOut>
         </div>
 
         {/* Mobile Menu */}
