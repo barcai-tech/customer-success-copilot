@@ -144,7 +144,7 @@ export function MessageList({
     const historyMessages = messages.filter(
       (m) => (m as unknown as Record<string, unknown>).isFromHistory
     );
-    
+
     // Find the latest history message task ID to keep it expanded
     let latestHistoryTaskId: string | null = null;
     if (historyMessages.length > 0) {
@@ -168,15 +168,18 @@ export function MessageList({
           (m) =>
             m.role === "assistant" && (m.taskId === task.id || m.id === task.id)
         );
-      
+
       // Check if this task has history messages
       const taskHasHistoryMessages = historyMessages.some(
         (m) => m.taskId === task.id || m.id === task.id
       );
-      
+
       // For history messages: only expand the latest one, collapse others
       if (hasAssistant && taskHasHistoryMessages) {
-        if (task.id === latestHistoryTaskId && !autoExpandedRef.current.has(task.id)) {
+        if (
+          task.id === latestHistoryTaskId &&
+          !autoExpandedRef.current.has(task.id)
+        ) {
           // Expand latest history task
           autoExpandedRef.current.add(task.id);
           if (!nextExpanded.has(task.id)) {
@@ -198,7 +201,7 @@ export function MessageList({
           changed = true;
         }
       }
-      
+
       // If a task is actively running, ensure it is expanded so users see progress
       if (
         status === "running" &&

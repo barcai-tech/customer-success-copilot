@@ -26,7 +26,7 @@ export function CopilotInput({
   // Initialize random customers on first render or when customers change
   useEffect(() => {
     const indices: number[] = [];
-    
+
     if (customers.length > 0) {
       for (let i = 0; i < Math.min(3, customers.length); i++) {
         let idx = Math.floor(Math.random() * customers.length);
@@ -36,14 +36,14 @@ export function CopilotInput({
         indices.push(idx);
       }
     }
-    
+
     // Defer setState to avoid cascading renders
     const frameId = requestAnimationFrame(() => {
       setRandomIndices(indices);
     });
-    
+
     return () => cancelAnimationFrame(frameId);
-  }, [customers.length]);  // Auto-resize textarea
+  }, [customers.length]); // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;

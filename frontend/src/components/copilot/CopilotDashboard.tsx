@@ -51,7 +51,10 @@ type HideTaskResult = { ok: true };
 interface CopilotDashboardProps {
   actions: {
     saveMessage: ServerAction<[SaveMessageArgs], StoredMessage>;
-    listAllMessagesForUser: ServerAction<[ListAllMessagesArgs], StoredMessage[]>;
+    listAllMessagesForUser: ServerAction<
+      [ListAllMessagesArgs],
+      StoredMessage[]
+    >;
     hideTask: ServerAction<[HideTaskArgs], HideTaskResult>;
   };
 }

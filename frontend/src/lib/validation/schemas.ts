@@ -1,50 +1,14 @@
 import { z } from "zod";
+import { sanitizeString } from "./sanitizers";
+import { hasXSSPatterns } from "./xss";
 
 /**
- * Input validation and sanitization utilities using Zod
- * Protects against XSS, injection attacks, and malformed data
+ * All Zod Schemas
+ * Used for validation throughout the application
  */
 
 // ============================================================================
-// Custom Zod refinements and transformers
-// ============================================================================
-
-/**
- * Remove null bytes and trim whitespace
- */
-const sanitizeString = (val: string) => val.replace(/\0/g, "").trim();
-
-/**
- * Check for XSS patterns
- */
-const hasXSSPatterns = (val: string): boolean => {
-  const dangerousPatterns = [
-    /<script/i,
-    /<iframe/i,
-    /<object/i,
-    /<embed/i,
-    /javascript:/i,
-    /on\w+\s*=/i, // onclick=, onerror=, etc.
-  ];
-  return dangerousPatterns.some((pattern) => pattern.test(val));
-};
-
-/**
- * Check for CSP violations
- */
-const hasCSPViolation = (val: string): boolean => {
-  const violations = [
-    /data:/i,
-    /blob:/i,
-    /javascript:/i,
-    /<\s*script/i,
-    /<\s*iframe/i,
-  ];
-  return violations.some((pattern) => pattern.test(val));
-};
-
-// ============================================================================
-// Zod Schemas
+// Basic Schemas
 // ============================================================================
 
 /**
@@ -165,73 +129,7 @@ export const ticketsArraySchema = z
   .max(50, "Too many tickets (max 50)");
 
 // ============================================================================
-// Helper functions for backward compatibility
-// ============================================================================
-
-/**
- * Sanitize generic text (backward compatible)
- */
-export function sanitizeText(input: string, maxLength = 500): string {
-  return textSchema(maxLength).parse(input);
-}
-
-/**
- * Sanitize external ID (backward compatible)
- */
-export function sanitizeExternalId(input: string): string {
-  return externalIdSchema.parse(input);
-}
-
-/**
- * Sanitize company name (backward compatible)
- */
-export function sanitizeCompanyName(input: string): string {
-  return companyNameSchema.parse(input);
-}
-
-/**
- * Validate ISO date (backward compatible)
- */
-export function validateISODate(input: string): string {
-  return isoDateSchema.parse(input);
-}
-
-/**
- * Sanitize number (backward compatible)
- */
-export function sanitizeNumber(
-  input: unknown,
-  min?: number,
-  max?: number
-): number {
-  return numberSchema(min, max).parse(input);
-}
-
-/**
- * Sanitize number array (backward compatible)
- */
-export function sanitizeNumberArray(input: unknown, maxLength = 100): number[] {
-  return numberArraySchema(maxLength).parse(input);
-}
-
-/**
- * Sanitize tickets (backward compatible)
- */
-export function sanitizeTickets(
-  input: unknown
-): Array<{ id: string; severity: string }> {
-  return ticketsArraySchema.parse(input);
-}
-
-/**
- * Detect CSP violation (backward compatible)
- */
-export function detectCSPViolation(input: string): boolean {
-  return hasCSPViolation(input);
-}
-
-// ============================================================================
-// Complete schemas for server actions
+// Domain Schemas (for database operations)
 // ============================================================================
 
 /**
@@ -240,7 +138,6 @@ export function detectCSPViolation(input: string): boolean {
 export const createCustomerSchema = z.object({
   name: companyNameSchema,
   externalId: z.string().transform((val) => {
-    // If externalId is provided, use it; otherwise it will be the name
     return externalIdSchema.parse(val);
   }),
 });
@@ -271,7 +168,7 @@ export const upsertUsageSchema = z.object({
 });
 
 // ============================================================================
-// Complete Customer Form Schema (for edit/create modal)
+// Form Schemas
 // ============================================================================
 
 /**
@@ -304,7 +201,9 @@ export const customerFormSchema = z.object({
   sparkline: z.string().default(""),
 });
 
-// Transformed schema for server actions
+/**
+ * Transformed schema for server actions
+ */
 export const customerFormSchemaTransformed = customerFormSchema.transform(
   (data) => {
     const externalId = data.externalId || externalIdSchema.parse(data.name);
@@ -338,15 +237,6 @@ export const customerFormSchemaTransformed = customerFormSchema.transform(
   }
 );
 
-export type CustomerFormData = z.infer<typeof customerFormSchema>;
-export type CustomerFormTransformed = z.infer<
-  typeof customerFormSchemaTransformed
->;
-
-// ============================================================================
-// Planner Form Schema (for copilot message input)
-// ============================================================================
-
 /**
  * Planner form schema
  * Validates user input for the copilot planner
@@ -372,8 +262,6 @@ export const plannerFormSchema = z.object({
       })
     ),
 });
-
-export type PlannerFormData = z.infer<typeof plannerFormSchema>;
 
 /**
  * Eval form schema (for evaluation mode)
@@ -402,5 +290,3 @@ export const evalFormSchema = z.object({
       })
     ),
 });
-
-export type EvalFormData = z.infer<typeof evalFormSchema>;

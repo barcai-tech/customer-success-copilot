@@ -36,16 +36,27 @@ function toStoredMessage(row: MessageRow): StoredMessage {
   };
 }
 
-export async function upsertCompanyByExternalId(externalId: string, name: string) {
+export async function upsertCompanyByExternalId(
+  externalId: string,
+  name: string
+) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
   const existing = await db
     .select()
     .from(companies)
-    .where(and(eq(companies.externalId, externalId), eq(companies.ownerUserId, userId)))
+    .where(
+      and(
+        eq(companies.externalId, externalId),
+        eq(companies.ownerUserId, userId)
+      )
+    )
     .limit(1);
   if (existing.length) return existing[0];
-  const [inserted] = await db.insert(companies).values({ externalId, name, ownerUserId: userId }).returning();
+  const [inserted] = await db
+    .insert(companies)
+    .values({ externalId, name, ownerUserId: userId })
+    .returning();
   return inserted;
 }
 
@@ -112,21 +123,15 @@ export async function listMessagesForCustomer(args: {
  * Used on page load to restore full conversation history
  * Returns messages in ascending chronological order
  */
-export async function listAllMessagesForUser(args?: {
-  limit?: number;
-}) {
+export async function listAllMessagesForUser(args?: { limit?: number }) {
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
-  const limit = args?.limit && args.limit > 0 ? Math.min(args.limit, 2000) : 2000;
+  const limit =
+    args?.limit && args.limit > 0 ? Math.min(args.limit, 2000) : 2000;
   const rows: MessageRow[] = await db
     .select()
     .from(messages)
-    .where(
-      and(
-        eq(messages.ownerUserId, userId),
-        eq(messages.hidden, false)
-      )
-    )
+    .where(and(eq(messages.ownerUserId, userId), eq(messages.hidden, false)))
     .orderBy(desc(messages.createdAt))
     .limit(limit);
   // Return ascending chronological order for UI

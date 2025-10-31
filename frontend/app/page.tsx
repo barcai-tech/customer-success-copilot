@@ -12,7 +12,9 @@ export default function Home() {
           </div>
         }
       >
-        <CopilotDashboard actions={{ saveMessage, listAllMessagesForUser, hideTask }} />
+        <CopilotDashboard
+          actions={{ saveMessage, listAllMessagesForUser, hideTask }}
+        />
       </Suspense>
     </div>
   );
