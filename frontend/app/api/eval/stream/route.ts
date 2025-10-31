@@ -6,6 +6,12 @@ import type {
   EvalSession,
   RunEvalRequest,
 } from "@/src/contracts/eval";
+import type {
+  StreamErrorEvent,
+  StreamTestStartEvent,
+  StreamTestCompleteEvent,
+  StreamFinalEvent,
+} from "@/src/contracts/streaming";
 import { db } from "@/src/db/client";
 import { companies } from "@/src/db/schema";
 import { eq } from "drizzle-orm";
@@ -63,7 +69,10 @@ export async function POST(req: NextRequest) {
           .where(eq(companies.ownerUserId, ownerForEval));
 
         const customerMap = new Map(
-          customerDetails.map((c) => [c.id, { name: c.name, ownerUserId: c.ownerUserId }])
+          customerDetails.map((c) => [
+            c.id,
+            { name: c.name, ownerUserId: c.ownerUserId },
+          ])
         );
 
         // Run evaluations
@@ -79,15 +88,17 @@ export async function POST(req: NextRequest) {
             const resultId = randomUUID();
 
             // Send test start event
+            const testStartEvent: StreamTestStartEvent = {
+              type: "test_start",
+              resultId,
+              customerId,
+              customerName: customerInfo.name,
+              action,
+              timestamp: new Date().toISOString(),
+            };
             controller.enqueue(
               new TextEncoder().encode(
-                `event: progress\ndata: ${JSON.stringify({
-                  type: "test_start",
-                  resultId,
-                  customerId,
-                  customerName: customerInfo.name,
-                  action,
-                })}\n\n`
+                `event: progress\ndata: ${JSON.stringify(testStartEvent)}\n\n`
               )
             );
 
@@ -131,22 +142,46 @@ export async function POST(req: NextRequest) {
                     toolsUsed: [],
                     toolErrors: [],
                   },
-                }); // Send completion event
+                });
+
+                // Send error event
+                const errorEvent: StreamErrorEvent = {
+                  type: "error",
+                  error: `Stream returned ${response.status}`,
+                  timestamp: new Date().toISOString(),
+                  context: {
+                    customerId,
+                    customerName: customerInfo.name,
+                    action,
+                    resultId,
+                  },
+                };
                 controller.enqueue(
                   new TextEncoder().encode(
-                    `event: progress\ndata: ${JSON.stringify({
-                      type: "test_complete",
-                      resultId,
-                      customerId,
-                      customerName: customerInfo.name,
-                      action,
-                      status: "failure",
-                      durationMs,
-                      result: {
-                        results,
-                        summary: calculateSummary(results),
-                      },
-                    })}\n\n`
+                    `event: progress\ndata: ${JSON.stringify(errorEvent)}\n\n`
+                  )
+                );
+
+                // Send completion event
+                const testCompleteEvent: StreamTestCompleteEvent = {
+                  type: "test_complete",
+                  resultId,
+                  customerId,
+                  customerName: customerInfo.name,
+                  action,
+                  status: "failure",
+                  durationMs,
+                  result: {
+                    results,
+                    summary: calculateSummary(results),
+                  },
+                  timestamp: new Date().toISOString(),
+                };
+                controller.enqueue(
+                  new TextEncoder().encode(
+                    `event: progress\ndata: ${JSON.stringify(
+                      testCompleteEvent
+                    )}\n\n`
                   )
                 );
                 continue;
@@ -226,25 +261,30 @@ export async function POST(req: NextRequest) {
               });
 
               // Send completion event
+              const testCompleteEvent: StreamTestCompleteEvent = {
+                type: "test_complete",
+                resultId,
+                customerId,
+                customerName: customerInfo.name,
+                action,
+                status,
+                durationMs,
+                result: {
+                  results,
+                  summary: calculateSummary(results),
+                },
+                timestamp: new Date().toISOString(),
+              };
               controller.enqueue(
                 new TextEncoder().encode(
-                  `event: progress\ndata: ${JSON.stringify({
-                    type: "test_complete",
-                    resultId,
-                    customerId,
-                    customerName: customerInfo.name,
-                    action,
-                    status,
-                    durationMs,
-                    result: {
-                      results,
-                      summary: calculateSummary(results),
-                    },
-                  })}\n\n`
+                  `event: progress\ndata: ${JSON.stringify(
+                    testCompleteEvent
+                  )}\n\n`
                 )
               );
             } catch (e) {
               const durationMs = Date.now() - startTime;
+              const errorMsg = (e as Error).message;
               results.push({
                 id: resultId,
                 timestamp: new Date().toISOString(),
@@ -252,7 +292,7 @@ export async function POST(req: NextRequest) {
                 customerName: customerInfo?.name || "",
                 action: action as unknown as EvalResult["action"],
                 status: "timeout",
-                error: (e as Error).message,
+                error: errorMsg,
                 durationMs,
                 metrics: {
                   hasSummary: false,
@@ -264,22 +304,44 @@ export async function POST(req: NextRequest) {
                 },
               });
 
-              // Send completion event
+              // Send error event
+              const errorEvent: StreamErrorEvent = {
+                type: "error",
+                error: errorMsg,
+                timestamp: new Date().toISOString(),
+                context: {
+                  customerId,
+                  customerName: customerInfo?.name,
+                  action,
+                  resultId,
+                },
+              };
               controller.enqueue(
                 new TextEncoder().encode(
-                  `event: progress\ndata: ${JSON.stringify({
-                    type: "test_complete",
-                    resultId,
-                    customerId,
-                    customerName: customerInfo?.name || "",
-                    action,
-                    status: "timeout",
-                    durationMs,
-                    result: {
-                      results,
-                      summary: calculateSummary(results),
-                    },
-                  })}\n\n`
+                  `event: progress\ndata: ${JSON.stringify(errorEvent)}\n\n`
+                )
+              );
+
+              // Send completion event
+              const testCompleteEvent: StreamTestCompleteEvent = {
+                type: "test_complete",
+                resultId,
+                customerId,
+                customerName: customerInfo?.name || "",
+                action,
+                status: "timeout",
+                durationMs,
+                result: {
+                  results,
+                  summary: calculateSummary(results),
+                },
+                timestamp: new Date().toISOString(),
+              };
+              controller.enqueue(
+                new TextEncoder().encode(
+                  `event: progress\ndata: ${JSON.stringify(
+                    testCompleteEvent
+                  )}\n\n`
                 )
               );
             }
@@ -298,12 +360,14 @@ export async function POST(req: NextRequest) {
           summary,
         };
 
+        const finalEvent: StreamFinalEvent = {
+          type: "final",
+          session,
+          timestamp: new Date().toISOString(),
+        };
         controller.enqueue(
           new TextEncoder().encode(
-            `event: final\ndata: ${JSON.stringify({
-              type: "final",
-              session,
-            })}\n\n`
+            `event: final\ndata: ${JSON.stringify(finalEvent)}\n\n`
           )
         );
 
@@ -414,9 +478,9 @@ async function parseStreamResponse(
               if (onIntermediateEvent) {
                 onIntermediateEvent({ type: eventType, ...eventData });
               }
-              } catch (e) {
-                logger.error("Failed to parse intermediate event:", e);
-              }
+            } catch (e) {
+              logger.error("Failed to parse intermediate event:", e);
+            }
           }
         }
         if (line.startsWith("data: ")) {

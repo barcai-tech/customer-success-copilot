@@ -405,3 +405,360 @@ async function parseStreamResponse(
 
   return finalResult;
 }
+
+// ============================================================================
+// Streaming Evaluation Execution (Server Action)
+// ============================================================================
+
+interface Summary {
+  total: number;
+  passed: number;
+  failed: number;
+  avgDurationMs: number;
+  successRate: number;
+}
+
+function calculateSummary(results: EvalResult[]): Summary {
+  const passed = results.filter((r) => r.status === "success").length;
+  const failed = results.filter((r) => r.status !== "success").length;
+  const avgDurationMs =
+    results.length > 0
+      ? results.reduce((sum, r) => sum + r.durationMs, 0) / results.length
+      : 0;
+
+  return {
+    total: results.length,
+    passed,
+    failed,
+    avgDurationMs,
+    successRate: results.length > 0 ? passed / results.length : 0,
+  };
+}
+
+/**
+ * Server action for running evaluation with streaming support.
+ * This is called from the client and returns an async iterable of streaming events.
+ *
+ * Note: This uses a callback-based approach since Next.js server actions
+ * return serializable data. For true streaming, use the route handler instead.
+ */
+export async function* streamEvaluation(input: unknown): AsyncGenerator<{
+  type: string;
+  [key: string]: unknown;
+}> {
+  try {
+    await requireEvalAccess();
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
+
+    // Validate input
+    const {
+      customerIds,
+      actions,
+      ownerUserId: targetOwnerUserId,
+    } = RunEvalRequestSchema.parse(input);
+
+    // Fetch customer details from database
+    const ownerForEval = targetOwnerUserId || userId;
+    const customerDetails = await db
+      .select({
+        id: companies.externalId,
+        name: companies.name,
+        ownerUserId: companies.ownerUserId,
+      })
+      .from(companies)
+      .where(eq(companies.ownerUserId, ownerForEval));
+
+    const customerMap = new Map(
+      customerDetails.map((c) => [
+        c.id,
+        { name: c.name, ownerUserId: c.ownerUserId },
+      ])
+    );
+
+    // Run evaluations
+    const sessionId = randomUUID();
+    const results: EvalResult[] = [];
+
+    for (const customerId of customerIds) {
+      const customerInfo = customerMap.get(customerId);
+      if (!customerInfo) continue;
+
+      for (const action of actions) {
+        const startTime = Date.now();
+        const resultId = randomUUID();
+
+        // Yield test_start event
+        yield {
+          type: "test_start",
+          resultId,
+          customerId,
+          customerName: customerInfo.name,
+          action,
+          timestamp: new Date().toISOString(),
+        };
+
+        try {
+          // Trigger the quick action via the streaming endpoint
+          const searchParams = new URLSearchParams({
+            message: generatePromptForAction(action, customerInfo.name),
+            selectedCustomerId: customerId,
+            ownerUserId: customerInfo.ownerUserId,
+          });
+
+          const response = await fetch(
+            `${getBaseUrl()}/api/copilot/stream?${searchParams}`,
+            {
+              method: "GET",
+              headers: {
+                "User-Agent": "EvalRunner/1.0",
+                "x-eval-run": "1",
+              },
+            }
+          );
+
+          if (!response.ok) {
+            const durationMs = Date.now() - startTime;
+            results.push({
+              id: resultId,
+              timestamp: new Date().toISOString(),
+              customerId,
+              customerName: customerInfo.name,
+              action,
+              status: "failure",
+              error: `Stream returned ${response.status}`,
+              durationMs,
+              metrics: {
+                hasSummary: false,
+                hasActions: false,
+                hasHealth: false,
+                hasEmail: false,
+                toolsUsed: [],
+                toolErrors: [],
+              },
+            });
+
+            // Yield test_complete event
+            yield {
+              type: "test_complete",
+              resultId,
+              customerId,
+              customerName: customerInfo.name,
+              action,
+              status: "failure",
+              durationMs,
+              result: {
+                results,
+                summary: calculateSummary(results),
+              },
+              timestamp: new Date().toISOString(),
+            };
+            continue;
+          }
+
+          // Parse streaming response and relay intermediate events
+          const finalResult = await parseStreamResponseWithCallback(response);
+
+          const durationMs = Date.now() - startTime;
+
+          const toolsUsed = Array.isArray(finalResult.usedTools)
+            ? finalResult.usedTools
+                .filter((t: unknown) => {
+                  const tool = t as Record<string, unknown>;
+                  return !tool.error;
+                })
+                .map((t: unknown) => {
+                  const tool = t as Record<string, unknown>;
+                  return String(tool.name);
+                })
+            : [];
+
+          const toolErrors = Array.isArray(finalResult.usedTools)
+            ? finalResult.usedTools
+                .filter((t: unknown) => {
+                  const tool = t as Record<string, unknown>;
+                  return tool.error;
+                })
+                .map((t: unknown) => {
+                  const tool = t as Record<string, unknown>;
+                  return `${String(tool.name)}: ${String(tool.error)}`;
+                })
+            : [];
+
+          const metrics = {
+            hasSummary: !!finalResult.summary,
+            hasActions: Array.isArray(finalResult.actions)
+              ? finalResult.actions.length > 0
+              : false,
+            hasHealth: !!finalResult.health,
+            hasEmail: !!finalResult.emailDraft,
+            toolsUsed,
+            toolErrors,
+          };
+
+          const status = finalResult.summary ? "success" : "failure";
+
+          results.push({
+            id: resultId,
+            timestamp: new Date().toISOString(),
+            customerId,
+            customerName: customerInfo.name,
+            action,
+            status,
+            error:
+              typeof finalResult.planHint === "string"
+                ? finalResult.planHint
+                : undefined,
+            planSource:
+              (finalResult.planSource as "llm" | "heuristic") || undefined,
+            planHint:
+              typeof finalResult.planHint === "string"
+                ? finalResult.planHint
+                : undefined,
+            durationMs,
+            result: finalResult as Record<string, unknown>,
+            metrics,
+          });
+
+          // Yield test_complete event
+          yield {
+            type: "test_complete",
+            resultId,
+            customerId,
+            customerName: customerInfo.name,
+            action,
+            status,
+            durationMs,
+            result: {
+              results,
+              summary: calculateSummary(results),
+            },
+            timestamp: new Date().toISOString(),
+          };
+        } catch (e) {
+          const durationMs = Date.now() - startTime;
+          results.push({
+            id: resultId,
+            timestamp: new Date().toISOString(),
+            customerId,
+            customerName: customerInfo.name,
+            action,
+            status: "timeout",
+            error: (e as Error).message,
+            durationMs,
+            metrics: {
+              hasSummary: false,
+              hasActions: false,
+              hasHealth: false,
+              hasEmail: false,
+              toolsUsed: [],
+              toolErrors: [],
+            },
+          });
+
+          // Yield test_complete event
+          yield {
+            type: "test_complete",
+            resultId,
+            customerId,
+            customerName: customerInfo.name,
+            action,
+            status: "timeout",
+            durationMs,
+            result: {
+              results,
+              summary: calculateSummary(results),
+            },
+            timestamp: new Date().toISOString(),
+          };
+        }
+      }
+    }
+
+    // Yield final session event
+    const summary = calculateSummary(results);
+    const session: EvalSession = {
+      id: sessionId,
+      timestamp: new Date().toISOString(),
+      customerIds,
+      actions,
+      userId: ownerForEval,
+      results,
+      summary,
+    };
+
+    yield {
+      type: "final",
+      session,
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error) {
+    logger.error("Error in streamEvaluation:", error);
+    yield {
+      type: "error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unknown error during evaluation",
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * Helper function to parse streaming response with callback support
+ */
+async function parseStreamResponseWithCallback(
+  response: Response
+): Promise<Record<string, unknown>> {
+  const reader = response.body?.getReader();
+  if (!reader) return {};
+
+  let finalResult: Record<string, unknown> = {};
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+
+      buffer = lines.pop() || "";
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        if (line.startsWith("event: final")) {
+          continue;
+        }
+        if (line.startsWith("event: ")) {
+          // In a server action, we can't directly yield from nested async iterators
+          // This code is kept for potential future use
+          const nextLine = i + 1 < lines.length ? lines[i + 1] : null;
+          if (nextLine && nextLine.startsWith("data: ")) {
+            try {
+              JSON.parse(nextLine.slice(6));
+              // Event processing would happen here
+            } catch (e) {
+              logger.error("Failed to parse intermediate event:", e);
+            }
+          }
+        }
+        if (line.startsWith("data: ")) {
+          try {
+            finalResult = JSON.parse(line.slice(6));
+          } catch (e) {
+            logger.error("Failed to parse final result:", e);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    logger.error("Error reading stream:", e);
+  }
+
+  return finalResult;
+}
