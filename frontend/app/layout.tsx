@@ -41,8 +41,59 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Customer Success Copilot",
-  description: "AI-powered customer success intelligence platform",
+  metadataBase: new URL("https://customer-success-copilot.barcai-tech.com"),
+  title: {
+    default: "Customer Success Copilot - AI-Powered CS Intelligence Platform",
+    template: "%s | Customer Success Copilot",
+  },
+  description:
+    "Agentic AI assistant for Customer Success teams. Analyze customer health, generate QBR outlines, and create renewal briefs through conversational AI. Built with production-grade security and OWASP LLM compliance.",
+  keywords: [
+    "customer success",
+    "AI copilot",
+    "customer health scoring",
+    "QBR automation",
+    "renewal insights",
+    "CSM tools",
+    "agentic AI",
+    "OpenAI GPT-4o",
+    "customer intelligence",
+    "multi-tool orchestration",
+    "serverless architecture",
+    "AWS Lambda",
+    "Next.js",
+    "TypeScript",
+  ],
+  authors: [{ name: "Barcai Technology", url: "https://barcai-tech.com" }],
+  creator: "Barcai Technology",
+  publisher: "Barcai Technology",
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://customer-success-copilot.barcai-tech.com",
+    siteName: "Customer Success Copilot",
+    title: "Customer Success Copilot - AI-Powered CS Intelligence",
+    description:
+      "Conversational AI that analyzes customer health, generates insights, and produces business-ready outputs for Customer Success teams.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Customer Success Copilot - AI-Powered CS Intelligence",
+    description:
+      "Conversational AI for Customer Success teams. Analyze health, generate QBR outlines, create renewal briefs.",
+    creator: "@barcaitech",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export default function RootLayout({
