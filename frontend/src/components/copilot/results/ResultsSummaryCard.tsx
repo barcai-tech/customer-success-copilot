@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AlertCircle, ChevronRight, Sparkles, Target } from "lucide-react";
 import type { PlannerResult } from "@/src/agent/planner";
 import { cn } from "@/src/lib/utils";
@@ -16,6 +16,16 @@ export function ResultsSummaryCard({
   taskType = "analysis",
 }: ResultsSummaryCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Set default expansion state based on screen size
+  useEffect(() => {
+    setIsMounted(true);
+    // Desktop (md and up) defaults to expanded, mobile defaults to collapsed
+    const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+    setIsExpanded(isDesktop);
+  }, []);
+
   const { summary, health, actions, notes } = result;
 
   // Determine priority based on health score
@@ -60,24 +70,12 @@ export function ResultsSummaryCard({
     <Card className={cn("transition-all duration-200", priorityColors)}>
       <div className="p-6 space-y-6">
         {/* Header with Priority Badge */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-foreground" />
-              <h3 className="text-lg font-semibold text-foreground">
-                {taskType.charAt(0).toUpperCase() + taskType.slice(1)} Results
-              </h3>
-            </div>
-            {summary && (
-              <p
-                className={cn(
-                  "text-sm text-foreground/80",
-                  !isExpanded && "line-clamp-2"
-                )}
-              >
-                {summary}
-              </p>
-            )}
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-foreground" />
+            <h3 className="text-lg font-semibold text-foreground">
+              {taskType.charAt(0).toUpperCase() + taskType.slice(1)} Results
+            </h3>
           </div>
           <span
             className={cn(
@@ -88,6 +86,18 @@ export function ResultsSummaryCard({
             {priorityBadge.text}
           </span>
         </div>
+
+        {/* Summary - Full Width */}
+        {summary && (
+          <p
+            className={cn(
+              "text-sm text-foreground/80",
+              !isExpanded && "line-clamp-2"
+            )}
+          >
+            {summary}
+          </p>
+        )}
 
         {/* Key Metrics Grid */}
         {health && (

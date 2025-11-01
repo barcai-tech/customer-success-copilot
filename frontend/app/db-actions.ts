@@ -137,7 +137,9 @@ export async function listAllMessagesForUser(args?: { limit?: number }) {
   const rows: MessageRow[] = await db
     .select()
     .from(messages)
-    .where(and(eq(messages.ownerUserId, ownerUserId), eq(messages.hidden, false)))
+    .where(
+      and(eq(messages.ownerUserId, ownerUserId), eq(messages.hidden, false))
+    )
     .orderBy(desc(messages.createdAt))
     .limit(limit);
   // Return ascending chronological order for UI
