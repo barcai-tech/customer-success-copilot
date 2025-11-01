@@ -29,8 +29,12 @@ import {
 import type { PlannerResult } from "@/src/agent/planner";
 import { parseIntent } from "@/src/agent/intent";
 import { auth } from "@clerk/nextjs/server";
-import { getRandomOutOfScopeReply } from "@/src/agent/outOfScopeReplies";
+import {
+  getRandomOutOfScopeReply,
+  getRandomMultiCustomerReply,
+} from "@/src/agent/outOfScopeReplies";
 import { logger } from "@/src/lib/logger";
+import { isMultiCustomerQuery } from "@/src/agent/utils";
 
 type ToolSchemaMap = Record<ToolName, z.ZodSchema<unknown>>;
 
@@ -61,6 +65,18 @@ export async function runLlmPlanner(
   const resultCache: Partial<ToolDataMap> = {};
   const parsed = await parseIntent(prompt);
   const taskHint = parsed.task || null;
+
+  // Check for multi-customer comparison queries (legitimate CS questions but out of demo scope)
+  if (isMultiCustomerQuery(prompt)) {
+    const guidance = getRandomMultiCustomerReply();
+    return sanitizePlannerResult({
+      planSource: "heuristic",
+      summary: guidance,
+      usedTools,
+      notes:
+        "Multi-customer comparison detected - out of single-customer demo scope",
+    });
+  }
 
   // Early out-of-scope guard: if no customer and no recognized task and the
   // message doesn't look related to customer success, return a friendly nudge.
@@ -282,7 +298,7 @@ export async function runLlmPlanner(
     const result = PlannerResultSchema.safeParse(parsed);
     if (!result.success) {
       if (process.env["LLM_DEBUG"] === "1") {
-      logger.error("Planner result validation error:", result.error.message);
+        logger.error("Planner result validation error:", result.error.message);
       }
       if (repairAttempts < 1) {
         repairAttempts++;

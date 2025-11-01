@@ -95,10 +95,64 @@ export function namesEqualIgnoreCase(a: string, b: string): boolean {
 }
 
 /**
+ * Detect if a message requests multi-customer comparison or aggregation
+ * (which is outside the scope of this single-customer demo)
+ */
+export function isMultiCustomerQuery(message: string): boolean {
+  const s = message.toLowerCase();
+
+  // Patterns that indicate multi-customer comparison/aggregation
+  const multiCustomerPatterns = [
+    "which customer",
+    "what customer",
+    "who is the",
+    "compare customers",
+    "compare accounts",
+    "best customer",
+    "worst customer",
+    "top customer",
+    "bottom customer",
+    "healthiest customer",
+    "unhealthiest customer",
+    "most healthy",
+    "least healthy",
+    "highest health",
+    "lowest health",
+    "rank customers",
+    "rank accounts",
+    "list all customers",
+    "show all customers",
+    "all customers",
+    "multiple customers",
+    "several customers",
+    "between customers",
+    "across customers",
+    "most at risk",
+    "least at risk",
+    "top performing",
+    "worst performing",
+    "best performing",
+    "most likely to churn",
+    "least likely to churn",
+    "highest arr",
+    "lowest arr",
+    "biggest contract",
+    "smallest contract",
+  ];
+
+  return multiCustomerPatterns.some((pattern) => s.includes(pattern));
+}
+
+/**
  * Determine if a message is out of scope for customer success
  */
 export function isOutOfScope(message: string): boolean {
   const s = message.toLowerCase();
+
+  // Multi-customer queries are out of scope for this single-customer demo
+  if (isMultiCustomerQuery(message)) {
+    return true;
+  }
 
   // Keywords that indicate CS domain
   const csKeywords = [
@@ -295,7 +349,7 @@ export function isOutOfScope(message: string): boolean {
     "drop table",
     "--",
     "' OR '1'='1",
-    "\" OR \"1\"=\"1",
+    '" OR "1"="1',
     "/*",
     "*/",
     "sqli",
@@ -468,7 +522,7 @@ export function isOutOfScope(message: string): boolean {
     "poisoning",
     "data poisoning",
     "model poisoning",
-    "model leak"
+    "model leak",
   ].some((k) => s.includes(k));
 
   return !hasCs && likelyOos;

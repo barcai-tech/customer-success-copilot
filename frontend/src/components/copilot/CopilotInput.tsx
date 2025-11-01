@@ -84,7 +84,7 @@ export function CopilotInput({
   return (
     <form onSubmit={handleSubmit} className="w-full">
       <div className="gradient-border-wrapper">
-        <div className="relative flex items-end gap-2 rounded-lg border border-border bg-background p-3 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+        <div className="relative flex items-center gap-2 rounded-lg border border-border bg-background p-3 shadow-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
           <textarea
             ref={textareaRef}
             value={inputValue}

@@ -1,5 +1,14 @@
+// Multi-customer comparison replies (helpful guidance)
+export const MULTI_CUSTOMER_REPLIES: string[] = [
+  "That's a great question! However, this demo analyzes one customer at a time. To compare customers, you'd use the full platform's dashboard view.\n\nTry asking about a specific customer instead, like:\n• \"What's the health score for Acme Corp?\"\n• \"Show me renewal risk for TechStart Inc\"",
+  'Good thinking! Cross-customer comparisons are powerful, but this demo focuses on single-customer insights.\n\nYou can select a customer from the sidebar and ask:\n• "How healthy is [customer name]?"\n• "What\'s the churn risk for [customer name]?"',
+  "I like where your head's at! Multi-customer rankings and comparisons would be part of the full analytics dashboard.\n\nFor now, try analyzing individual customers:\n• Pick a customer from the sidebar\n• Ask about their health, tickets, or renewal status",
+  "Great question! The full platform would handle that kind of comparison across your portfolio.\n\nIn this demo, I can help with single-customer analysis:\n• Customer health scores\n• Renewal briefs\n• Support ticket summaries\n• QBR outlines",
+  'That\'s exactly the kind of insight a CSM team needs! However, portfolio-wide comparisons require the full platform.\n\nThis demo specializes in deep-diving one customer at a time. Select a customer and ask:\n• "What\'s their adoption trend?"\n• "Show me recent support tickets"',
+];
+
 export const OUT_OF_SCOPE_REPLIES: string[] = [
-  "My sneaky friend, I’m flattered — but I moonlight as a customer-management copilot, not a jailbreak concierge. Could you try a safer prompt?",
+  "My sneaky friend, I'm flattered — but I moonlight as a customer-management copilot, not a jailbreak concierge. Could you try a safer prompt?",
   "That prompt wandered off the map. I only have a GPS for customer-success land — re-route and I’ll guide you.",
   "I admire creative curiosity, but this smells like a trapdoor. I’ll help with customers, not plot twists.",
   "Plot twist: I refuse villainy. Give me a customer question and we’ll write a happy ending.",
@@ -36,3 +45,7 @@ export function getRandomOutOfScopeReply(): string {
   return OUT_OF_SCOPE_REPLIES[idx];
 }
 
+export function getRandomMultiCustomerReply(): string {
+  const idx = Math.floor(Math.random() * MULTI_CUSTOMER_REPLIES.length);
+  return MULTI_CUSTOMER_REPLIES[idx];
+}

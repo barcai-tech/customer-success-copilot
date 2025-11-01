@@ -7,7 +7,10 @@ import { companies } from "@/src/db/schema";
 import { and, eq } from "drizzle-orm";
 import { logger } from "@/src/lib/logger";
 import type { TaskType } from "@/src/store/copilot-store";
-import { getRandomOutOfScopeReply } from "@/src/agent/outOfScopeReplies";
+import {
+  getRandomOutOfScopeReply,
+  getRandomMultiCustomerReply,
+} from "@/src/agent/outOfScopeReplies";
 
 // Modular agent imports
 import {
@@ -20,6 +23,7 @@ import {
   isOutOfScope,
   extractRequestedCustomerName,
   namesEqualIgnoreCase,
+  isMultiCustomerQuery,
 } from "@/src/agent/utils";
 import type { ToolDataMap } from "@/src/agent/types";
 import { TOOL_SCHEMAS } from "@/src/agent/types";
@@ -152,6 +156,21 @@ export async function GET(req: NextRequest) {
           try {
             task = (await parseTask(message)) || null;
           } catch {}
+        }
+
+        // Check for multi-customer comparison queries first (legitimate CS but out of demo scope)
+        if (isMultiCustomerQuery(message)) {
+          const guidance = getRandomMultiCustomerReply();
+          send(
+            "final",
+            sanitizePlannerResult({
+              planSource: "heuristic",
+              summary: guidance,
+              notes:
+                "Multi-customer comparison detected - out of single-customer demo scope",
+            })
+          );
+          return close();
         }
 
         // Out-of-scope guard: reject non-CS questions regardless of customer selection

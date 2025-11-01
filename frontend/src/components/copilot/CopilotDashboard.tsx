@@ -612,7 +612,10 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
 
               {/* Input - Fixed at bottom, outside scroll area and sidebar overlay */}
               <div className="shrink-0 border-t border-border bg-background p-4 md:p-6 lg:p-8">
-                <CopilotInput onSubmit={handleSubmit} onMessageSubmit={handleOnMessageSubmit} />
+                <CopilotInput
+                  onSubmit={handleSubmit}
+                  onMessageSubmit={handleOnMessageSubmit}
+                />
               </div>
             </>
           )}
