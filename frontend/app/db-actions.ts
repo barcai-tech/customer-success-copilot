@@ -70,7 +70,9 @@ export type SaveMessageArgs = {
 
 export async function saveMessage(args: SaveMessageArgs) {
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  // For guests (no userId), use "public" as ownerUserId
+  const ownerUserId = userId || "public";
+
   // Validate inputs
   const RoleSchema = z.enum(["user", "assistant", "system"]);
   const payload = {
@@ -83,7 +85,7 @@ export async function saveMessage(args: SaveMessageArgs) {
 
   const values: MessageInsert = {
     companyExternalId: payload.companyExternalId,
-    ownerUserId: userId,
+    ownerUserId,
     role: payload.role,
     content: payload.content,
     resultJson: payload.resultJson,
@@ -99,7 +101,9 @@ export async function listMessagesForCustomer(args: {
   limit?: number;
 }) {
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  // For guests (no userId), use "public" as ownerUserId
+  const ownerUserId = userId || "public";
+
   const companyExternalId = z.string().min(1).parse(args.companyExternalId);
   const limit = args.limit && args.limit > 0 ? Math.min(args.limit, 500) : 200;
   const rows: MessageRow[] = await db
@@ -107,7 +111,7 @@ export async function listMessagesForCustomer(args: {
     .from(messages)
     .where(
       and(
-        eq(messages.ownerUserId, userId),
+        eq(messages.ownerUserId, ownerUserId),
         eq(messages.companyExternalId, companyExternalId),
         eq(messages.hidden, false)
       )
@@ -125,13 +129,15 @@ export async function listMessagesForCustomer(args: {
  */
 export async function listAllMessagesForUser(args?: { limit?: number }) {
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  // For guests (no userId), use "public" as ownerUserId
+  const ownerUserId = userId || "public";
+
   const limit =
     args?.limit && args.limit > 0 ? Math.min(args.limit, 2000) : 2000;
   const rows: MessageRow[] = await db
     .select()
     .from(messages)
-    .where(and(eq(messages.ownerUserId, userId), eq(messages.hidden, false)))
+    .where(and(eq(messages.ownerUserId, ownerUserId), eq(messages.hidden, false)))
     .orderBy(desc(messages.createdAt))
     .limit(limit);
   // Return ascending chronological order for UI
@@ -140,12 +146,14 @@ export async function listAllMessagesForUser(args?: { limit?: number }) {
 
 export async function hideMessage(args: { id: string }) {
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  // For guests (no userId), use "public" as ownerUserId
+  const ownerUserId = userId || "public";
+
   const id = z.string().min(1).parse(args.id);
   await db
     .update(messages)
     .set({ hidden: true })
-    .where(and(eq(messages.id, id), eq(messages.ownerUserId, userId)));
+    .where(and(eq(messages.id, id), eq(messages.ownerUserId, ownerUserId)));
   return { ok: true } as const;
 }
 
@@ -154,7 +162,9 @@ export async function hideTask(args: {
   taskId: string;
 }) {
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  // For guests (no userId), use "public" as ownerUserId
+  const ownerUserId = userId || "public";
+
   const companyExternalId = z.string().min(1).parse(args.companyExternalId);
   const taskId = z.string().min(1).parse(args.taskId);
   await db
@@ -162,7 +172,7 @@ export async function hideTask(args: {
     .set({ hidden: true })
     .where(
       and(
-        eq(messages.ownerUserId, userId),
+        eq(messages.ownerUserId, ownerUserId),
         eq(messages.companyExternalId, companyExternalId),
         // Hide by task id if present, otherwise hide by message id fallback
         // This covers legacy rows without task_id
