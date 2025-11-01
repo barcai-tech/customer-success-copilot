@@ -1,24 +1,51 @@
-import { Suspense } from "react";
-import { CopilotDashboard } from "@/src/components/copilot/CopilotDashboard";
-import { ErrorBoundary } from "@/src/components/ErrorBoundary";
-import { saveMessage, listAllMessagesForUser, hideTask } from "./db-actions";
+import { LandingHero } from "@/src/components/landing/LandingHero";
+import { Features } from "@/src/components/landing/Features";
+import { CaseStudy } from "@/src/components/landing/CaseStudy";
+import { TechStack } from "@/src/components/landing/TechStack";
+import { CallToAction } from "@/src/components/landing/CallToAction";
+import { LandingSchema, OrganizationSchema } from "@/src/lib/schema";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Customer Success Copilot - AI-Powered CS Intelligence Platform",
+  description:
+    "Agentic AI assistant for Customer Success teams. Analyze customer health, generate QBR outlines, and create renewal briefs through conversational AI. Built with production-grade security and OWASP LLM compliance.",
+  keywords: [
+    "customer success",
+    "AI copilot",
+    "customer health",
+    "QBR automation",
+    "renewal insights",
+    "CSM tools",
+    "agentic AI",
+    "OpenAI GPT-4.1",
+    "customer intelligence",
+  ],
+  openGraph: {
+    title: "Customer Success Copilot - AI-Powered CS Intelligence",
+    description:
+      "Conversational AI that analyzes customer health, generates insights, and produces business-ready outputs for Customer Success teams.",
+    type: "website",
+    url: "https://customer-success-copilot.barcai-tech.com",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Customer Success Copilot - AI-Powered CS Intelligence",
+    description:
+      "Conversational AI for Customer Success teams. Analyze health, generate QBR outlines, create renewal briefs.",
+  },
+};
 
 export default function Home() {
   return (
-    <div className="h-full w-full overflow-hidden">
-      <ErrorBoundary>
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center h-full">
-              Loading...
-            </div>
-          }
-        >
-          <CopilotDashboard
-            actions={{ saveMessage, listAllMessagesForUser, hideTask }}
-          />
-        </Suspense>
-      </ErrorBoundary>
+    <div className="w-full h-full overflow-y-auto">
+      <LandingSchema />
+      <OrganizationSchema />
+      <LandingHero />
+      <Features />
+      <CaseStudy />
+      <TechStack />
+      <CallToAction />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   GLOBAL_CONTRACTS,
   GLOBAL_TICKETS,
   GLOBAL_USAGE,
+  refreshOverdueContractDates,
 } from "@/src/db/seed-data";
 import {
   sanitizeExternalId,
@@ -26,6 +27,14 @@ import {
 import type { CustomerRow } from "@/src/store/customer-store";
 
 type ContractInsert = typeof contracts.$inferInsert;
+
+/**
+ * Refreshes overdue demo contract dates.
+ * Called periodically to ensure public demo companies always have future renewal dates.
+ */
+export async function refreshDemoContractDates(): Promise<void> {
+  refreshOverdueContractDates();
+}
 
 export async function listCustomersForUser(): Promise<CustomerRow[]> {
   const { userId } = await auth();
@@ -79,10 +88,35 @@ export async function listCustomersForUser(): Promise<CustomerRow[]> {
 
 export async function getCustomerDetails(externalId: string) {
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
   const id = String(externalId || "").trim();
   if (!id) throw new Error("externalId required");
 
+  // For guests (no userId), return public demo data
+  if (!userId) {
+    // Refresh overdue demo contract dates on every guest request
+    refreshOverdueContractDates();
+
+    const company = GLOBAL_COMPANIES.find((c) => c.id === id);
+    const contract = GLOBAL_CONTRACTS[id];
+    const tickets = GLOBAL_TICKETS[id];
+    const usage = GLOBAL_USAGE[id];
+
+    return {
+      company: company
+        ? { id: company.id, name: company.name }
+        : { id, name: "" },
+      contract: contract
+        ? {
+            renewalDate: new Date(contract.renewalDate),
+            arr: contract.arr,
+          }
+        : undefined,
+      tickets: tickets ? { recentTickets: tickets.recentTickets } : undefined,
+      usage: usage ? { sparkline: usage.sparkline } : undefined,
+    };
+  }
+
+  // For authenticated users, query their own data
   const company = await db
     .select({ id: companies.externalId, name: companies.name })
     .from(companies)
@@ -129,7 +163,7 @@ export async function getCustomerDetails(externalId: string) {
 
   return {
     company: company[0] || { id, name: "" },
-    contract: contract[0] || null,
+    contract: contract[0] || undefined,
     tickets: tickets[0] || { openTickets: 0, recentTickets: [] },
     usage: usage[0] || { trend: "flat", avgDailyUsers: 0, sparkline: [] },
   };

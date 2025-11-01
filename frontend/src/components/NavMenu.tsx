@@ -7,7 +7,7 @@ import { cn } from "@/src/lib/utils";
 
 const navItems = [
   {
-    href: "/",
+    href: "/copilot",
     label: "Copilot",
     icon: Home,
   },

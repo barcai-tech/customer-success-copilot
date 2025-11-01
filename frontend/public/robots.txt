@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /copilot
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /eval
+Disallow: /sign-in
+Disallow: /sign-up
+Disallow: /debug
+
+Sitemap: https://customer-success-copilot.barcai-tech.com/sitemap.xml

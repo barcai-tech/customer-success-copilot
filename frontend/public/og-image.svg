@@ -1,0 +1,86 @@
+<svg viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0ea5e9;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGradient)"/>
+  
+  <!-- Decorative circles -->
+  <circle cx="100" cy="100" r="80" fill="#3b82f6" opacity="0.1"/>
+  <circle cx="1100" cy="530" r="120" fill="#0ea5e9" opacity="0.1"/>
+  
+  <!-- Grid pattern -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#ffffff" stroke-width="0.5" opacity="0.05"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grid)" />
+  
+  <!-- Main content -->
+  <g>
+    <!-- Icon/Logo area -->
+    <circle cx="200" cy="315" r="60" fill="url(#accentGradient)" opacity="0.2"/>
+    <circle cx="200" cy="315" r="50" fill="none" stroke="#3b82f6" stroke-width="2" opacity="0.5"/>
+    
+    <!-- Sparkle icon -->
+    <text x="200" y="335" font-size="60" font-weight="bold" text-anchor="middle" fill="#3b82f6" font-family="system-ui, -apple-system, sans-serif">✨</text>
+    
+    <!-- Main headline -->
+    <text x="400" y="200" font-size="72" font-weight="800" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif">
+      Customer Success
+    </text>
+    <text x="400" y="280" font-size="72" font-weight="800" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif">
+      Copilot
+    </text>
+    
+    <!-- Subheading -->
+    <text x="400" y="340" font-size="28" fill="#cbd5e1" font-family="system-ui, -apple-system, sans-serif">
+      AI-Powered Intelligence for CS Teams
+    </text>
+    
+    <!-- Feature bullets -->
+    <g>
+      <!-- Bullet 1 -->
+      <circle cx="400" cy="410" r="4" fill="#0ea5e9"/>
+      <text x="425" y="416" font-size="20" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif">
+        Health Scoring
+      </text>
+      
+      <!-- Bullet 2 -->
+      <circle cx="700" cy="410" r="4" fill="#0ea5e9"/>
+      <text x="725" y="416" font-size="20" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif">
+        QBR Generation
+      </text>
+      
+      <!-- Bullet 3 -->
+      <circle cx="400" cy="470" r="4" fill="#0ea5e9"/>
+      <text x="425" y="476" font-size="20" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif">
+        Renewal Insights
+      </text>
+      
+      <!-- Bullet 4 -->
+      <circle cx="700" cy="470" r="4" fill="#0ea5e9"/>
+      <text x="725" y="476" font-size="20" fill="#e2e8f0" font-family="system-ui, -apple-system, sans-serif">
+        Multi-Tool Orchestration
+      </text>
+    </g>
+    
+    <!-- Bottom accent bar -->
+    <rect x="400" y="550" width="600" height="4" fill="url(#accentGradient)"/>
+    
+    <!-- Branding -->
+    <text x="400" y="590" font-size="16" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif">
+      Powered by Barcai Technology • barcai-tech.com
+    </text>
+  </g>
+</svg>

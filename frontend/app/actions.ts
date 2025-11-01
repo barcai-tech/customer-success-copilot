@@ -9,6 +9,7 @@ import { db } from "@/src/db/client";
 import { companies } from "@/src/db/schema";
 import { inArray, sql } from "drizzle-orm";
 import { seedGlobalCustomers as seedCustomersImpl } from "@/app/seed-actions";
+import { refreshOverdueContractDates } from "@/src/db/seed-data";
 
 export type PlannerActionState =
   | { ok: true; result: PlannerResult }
@@ -18,6 +19,12 @@ export type PlannerActionState =
 // Shared server action: list companies for current viewer (user-owned only, or public if not logged in)
 export async function listCompaniesForViewer() {
   const { userId } = await auth();
+
+  // Refresh demo contract dates on every public request
+  if (!userId) {
+    refreshOverdueContractDates();
+  }
+
   const owners = userId ? [userId] : ["public"];
   const rows = await db
     .select({
