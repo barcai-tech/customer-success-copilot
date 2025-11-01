@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
+Allow: /copilot
 Disallow: /api/
-Disallow: /copilot
 Disallow: /dashboard
 Disallow: /eval
 Disallow: /sign-in

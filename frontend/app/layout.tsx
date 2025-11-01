@@ -81,11 +81,11 @@ export const metadata: Metadata = {
       "Conversational AI that analyzes customer health, generates insights, and produces business-ready outputs for Customer Success teams.",
     images: [
       {
-        url: "https://customer-success-copilot.barcai-tech.com/og-image.png",
+        url: "https://customer-success-copilot.barcai-tech.com/og-image.svg",
         width: 1200,
         height: 630,
         alt: "Customer Success Copilot - AI Intelligence Platform",
-        type: "image/png",
+        type: "image/svg+xml",
       },
     ],
   },
