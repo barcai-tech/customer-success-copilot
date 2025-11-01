@@ -1,6 +1,6 @@
 // Multi-customer comparison replies (helpful guidance)
 export const MULTI_CUSTOMER_REPLIES: string[] = [
-  "That's a great question! However, this demo analyzes one customer at a time. To compare customers, you'd use the full platform's dashboard view.\n\nTry asking about a specific customer instead, like:\n• \"What's the health score for Acme Corp?\"\n• \"Show me renewal risk for TechStart Inc\"",
+  "Excellent question! You're thinking like a Customer Success Pro.\n\nThis demo looks at one customer at a time — the comparison magic lives in a full dashboard version. If that's something your team could use, nudge me — I'd be happy to explore building it with you.\n\nFor now, try something like:\n• \"What's the health score for Acme Corp?\"\n• \"Show me renewal risk for TechStart Inc\"",
   'Good thinking! Cross-customer comparisons are powerful, but this demo focuses on single-customer insights.\n\nYou can select a customer from the sidebar and ask:\n• "How healthy is [customer name]?"\n• "What\'s the churn risk for [customer name]?"',
   "I like where your head's at! Multi-customer rankings and comparisons would be part of the full analytics dashboard.\n\nFor now, try analyzing individual customers:\n• Pick a customer from the sidebar\n• Ask about their health, tickets, or renewal status",
   "Great question! The full platform would handle that kind of comparison across your portfolio.\n\nIn this demo, I can help with single-customer analysis:\n• Customer health scores\n• Renewal briefs\n• Support ticket summaries\n• QBR outlines",

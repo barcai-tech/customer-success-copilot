@@ -90,30 +90,73 @@ export function parseIntent(prompt: string): {
     task = "email";
   else if (matchesKeywords(text, ["churn", "risk", "at-risk"])) task = "churn";
 
-  // Out-of-scope detection
+  // Out-of-scope detection (multi-layered)
+  if (isMultiCustomerQuery(text)) {
+    return { customerId: undefined }; // Trigger multi-customer fallback
+  }
   if (isOutOfScope(text)) {
-    return { customerId }; // Return safe default
+    return { customerId }; // Trigger generic out-of-scope fallback
   }
 
   return { customerId, task };
 }
 
-function isOutOfScope(text: string): boolean {
-  const outOfScopeKeywords = [
-    "tell me a joke",
-    "what is",
-    "how do i",
-    "write code",
+// Multi-customer query detection (legitimate CS questions outside demo scope)
+function isMultiCustomerQuery(text: string): boolean {
+  const multiCustomerPatterns = [
+    "which customer",
+    "what customer",
+    "compare customers",
+    "rank customers",
+    "top customer",
+    "best customer",
+    "worst customer",
+    "healthiest customer",
+    "most at risk",
+    "highest churn",
+    "all customers",
+    "customer list",
   ];
-  return outOfScopeKeywords.some((k) => text.includes(k));
+  return multiCustomerPatterns.some((pattern) => text.includes(pattern));
+}
+
+// General out-of-scope detection (entertainment, security, harmful content)
+function isOutOfScope(text: string): boolean {
+  const csKeywords = [
+    "customer",
+    "health",
+    "renewal",
+    "qbr",
+    "ticket",
+    "contract",
+    "usage",
+  ];
+  const hasCS = csKeywords.some((k) => text.includes(k));
+
+  const outOfScopeKeywords = [
+    "movie",
+    "weather",
+    "joke",
+    "recipe",
+    "hack",
+    "exploit",
+    "sql injection",
+    // ... 260+ keywords covering prompt injection, malware, illegal activities
+  ];
+  const isOOS = outOfScopeKeywords.some((k) => text.includes(k));
+
+  return !hasCS && isOOS;
 }
 ```
 
 **Fallback Behavior:**
 
+- If multi-customer query: return helpful guidance to ask about a specific customer
+- If out-of-scope: return safe, non-committal reply
 - If customer not found: return error
 - If task unrecognized: fall back to generic planner
-- If out-of-scope: return helpful, non-committal reply
+
+**Note:** Multi-customer and out-of-scope checks happen _before_ customer validation to provide better UX for new users who may ask general questions without selecting a customer first.
 
 ### 2. Planning Phase
 
@@ -795,7 +838,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
 1. **System Prompt:** Hardened instructions prevent prompt injection
 2. **Tool Governance:** Only registered tools callable
-3. **Out-of-Scope Detection:** Unrelated prompts trigger safe replies
+3. **Out-of-Scope Detection:** Multi-layered detection for different query types:
+   - **Entertainment/Security/Harmful Content:** 260+ keyword blocklist catches prompt injection, malicious code, illegal activities, etc.
+   - **Multi-Customer Comparisons:** Pattern-based detection for queries like "which customer is healthiest", "compare customers", "rank customers"
+     - Lightweight, deterministic (no additional LLM calls)
+     - Provides context-aware guidance instead of generic rejection
+     - Example response: "That's a great question! Comparing multiple customers is something the full platform handles. For this demo, try asking about a specific customer like 'What's the health of Acme Corp?'"
+   - Safe, helpful fallback messages guide users to supported functionality
 4. **Output Validation:** LLM responses parsed and validated
 5. **Bounded Reasoning:** Max tokens, max rounds, timeouts
 
