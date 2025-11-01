@@ -1,3 +1,19 @@
+/**
+ * Evaluation Streaming Endpoint
+ *
+ * Server-side API route for streaming evaluation results.
+ * Uses SSE (Server-Sent Events) for real-time test execution and progress updates.
+ *
+ * Justification for API endpoint (vs. Server Action):
+ * - Server Actions cannot stream responses; they require full completion before returning
+ * - SSE protocol requires persistent connection with chunked transfer encoding
+ * - This endpoint runs multiple tests in sequence and streams progress events
+ *
+ * POST /api/eval/stream
+ * Body: { customerIds: string[], actions: string[], selectedUserId?: string }
+ * Returns: text/event-stream with JSON events
+ */
+
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { randomUUID } from "crypto";

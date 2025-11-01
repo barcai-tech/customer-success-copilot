@@ -1,3 +1,18 @@
+/**
+ * Copilot Streaming Endpoint
+ *
+ * Server-side API route for streaming copilot responses.
+ * Uses SSE (Server-Sent Events) for real-time tool execution and result streaming.
+ *
+ * Justification for API endpoint (vs. Server Action):
+ * - Server Actions cannot stream responses; they require full completion before returning
+ * - SSE protocol requires persistent connection with chunked transfer encoding
+ * - This endpoint coordinates planning, tool invocation, and streaming synthesis
+ *
+ * GET /api/copilot/stream?customerId=...&query=...
+ * Returns: text/event-stream with JSON events
+ */
+
 import { NextRequest } from "next/server";
 import { parseIntent, parseTask } from "@/src/agent/intent";
 import { z } from "zod";
