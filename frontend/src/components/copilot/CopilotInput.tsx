@@ -7,12 +7,14 @@ import { useCopilotStore } from "../../store/copilot-store";
 
 interface CopilotInputProps {
   onSubmit?: (message: string) => void;
+  onMessageSubmit?: () => void;
   placeholder?: string;
   disabled?: boolean;
 }
 
 export function CopilotInput({
   onSubmit,
+  onMessageSubmit,
   placeholder = "Ask me anything about your customers...",
   disabled = false,
 }: CopilotInputProps) {
@@ -64,6 +66,7 @@ export function CopilotInput({
     if (!trimmedValue || disabled || status === "running") return;
 
     onSubmit?.(trimmedValue);
+    onMessageSubmit?.();
     setInputValue("");
   };
 

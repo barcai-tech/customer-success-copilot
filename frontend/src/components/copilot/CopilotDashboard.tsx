@@ -116,6 +116,13 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
     setIsSidebarOpen(state);
   }, []);
 
+  // Close sidebar on mobile when message is submitted from CopilotInput
+  const handleOnMessageSubmit = useCallback(() => {
+    if (isMobile) {
+      setIsSidebarOpen(false);
+    }
+  }, [isMobile]);
+
   const handleSubmit = useCallback(
     async (message: string, customerIdOverride?: string) => {
       // Generate a reliable UUID for tracking this task/message pair
@@ -605,7 +612,7 @@ export function CopilotDashboard({ actions }: CopilotDashboardProps) {
 
               {/* Input - Fixed at bottom, outside scroll area and sidebar overlay */}
               <div className="shrink-0 border-t border-border bg-background p-4 md:p-6 lg:p-8">
-                <CopilotInput onSubmit={handleSubmit} />
+                <CopilotInput onSubmit={handleSubmit} onMessageSubmit={handleOnMessageSubmit} />
               </div>
             </>
           )}
