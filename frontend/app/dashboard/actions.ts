@@ -79,10 +79,32 @@ export async function listCustomersForUser(): Promise<CustomerRow[]> {
 
 export async function getCustomerDetails(externalId: string) {
   const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
   const id = String(externalId || "").trim();
   if (!id) throw new Error("externalId required");
 
+  // For guests (no userId), return public demo data
+  if (!userId) {
+    const company = GLOBAL_COMPANIES.find((c) => c.id === id);
+    const contract = GLOBAL_CONTRACTS[id];
+    const tickets = GLOBAL_TICKETS[id];
+    const usage = GLOBAL_USAGE[id];
+
+    return {
+      company: company
+        ? { id: company.id, name: company.name }
+        : { id, name: "" },
+      contract: contract
+        ? {
+            renewalDate: new Date(contract.renewalDate),
+            arr: contract.arr,
+          }
+        : undefined,
+      tickets: tickets ? { recentTickets: tickets.recentTickets } : undefined,
+      usage: usage ? { sparkline: usage.sparkline } : undefined,
+    };
+  }
+
+  // For authenticated users, query their own data
   const company = await db
     .select({ id: companies.externalId, name: companies.name })
     .from(companies)
@@ -129,7 +151,7 @@ export async function getCustomerDetails(externalId: string) {
 
   return {
     company: company[0] || { id, name: "" },
-    contract: contract[0] || null,
+    contract: contract[0] || undefined,
     tickets: tickets[0] || { openTickets: 0, recentTickets: [] },
     usage: usage[0] || { trend: "flat", avgDailyUsers: 0, sparkline: [] },
   };
