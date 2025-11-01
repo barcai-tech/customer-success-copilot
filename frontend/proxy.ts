@@ -2,6 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/copilot",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/copilot/stream",
@@ -9,7 +10,11 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
-    await auth.protect();
+    const signInUrl = new URL("/sign-in", req.url);
+    await auth.protect({
+      unauthenticatedUrl: signInUrl.toString(),
+      unauthorizedUrl: signInUrl.toString(),
+    });
   }
 });
 

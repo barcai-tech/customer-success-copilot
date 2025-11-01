@@ -56,7 +56,7 @@ export const metadata: Metadata = {
     "renewal insights",
     "CSM tools",
     "agentic AI",
-    "OpenAI GPT-4o",
+    "OpenAI GPT-4.1",
     "customer intelligence",
     "multi-tool orchestration",
     "serverless architecture",

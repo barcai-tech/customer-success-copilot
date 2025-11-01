@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     "renewal insights",
     "CSM tools",
     "agentic AI",
-    "OpenAI GPT-4o",
+    "OpenAI GPT-4.1",
     "customer intelligence",
   ],
   openGraph: {
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
 
 export default function Home() {
   return (
-    <div className="w-full overflow-y-auto">
+    <div className="w-full h-full overflow-y-auto">
       <LandingHero />
       <Features />
       <CaseStudy />

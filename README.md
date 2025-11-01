@@ -229,7 +229,7 @@ HMAC_CLIENT_ID=copilot-frontend
 
 # LLM (server-side only)
 OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o  # Optional; defaults to gpt-4o
+OPENAI_MODEL=gpt-4.1  # Optional; defaults to gpt-4.1
 
 # Optional Observability
 NEXT_PUBLIC_VERCEL_ANALYTICS_ID=...

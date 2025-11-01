@@ -15,7 +15,7 @@ export function CustomerActionsMenu({ customer }: CustomerActionsMenuProps) {
 
   const runPreset = (externalId: string, task: string) => {
     const url = new URL(window.location.origin);
-    url.pathname = "/";
+    url.pathname = "/copilot";
     url.searchParams.set("selectedCustomerId", externalId);
     url.searchParams.set("task", task);
     window.location.href = url.toString();

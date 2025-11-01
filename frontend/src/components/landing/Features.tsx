@@ -147,14 +147,14 @@ export function Features() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold">
-                OpenAI GPT-4o Integration
+                OpenAI GPT-4.1 Integration
               </h3>
             </div>
             <ul className="space-y-3">
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-500 shrink-0 mt-0.5" />
                 <span className="text-sm">
-                  Advanced reasoning with structured outputs
+                  Fast, efficient inference with structured outputs
                 </span>
               </li>
               <li className="flex items-start gap-2">

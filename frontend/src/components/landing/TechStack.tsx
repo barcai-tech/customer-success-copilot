@@ -106,8 +106,8 @@ export function TechStack() {
               <li className="flex items-center gap-3">
                 <div className="w-2 h-2 rounded-full bg-primary" />
                 <span className="text-muted-foreground">
-                  <strong className="text-foreground">OpenAI GPT-4o</strong> for
-                  AI planning
+                  <strong className="text-foreground">OpenAI GPT-4.1</strong>{" "}
+                  for AI planning
                 </span>
               </li>
               <li className="flex items-center gap-3">

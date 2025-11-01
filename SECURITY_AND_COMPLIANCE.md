@@ -748,7 +748,7 @@ export function redactString(input: string): string {
 
 ```bash
 # frontend/.env.local
-OPENAI_MODEL=gpt-4o  # Default; can be overridden per deployment
+OPENAI_MODEL=gpt-4.1  # Default; can be overridden per deployment
 ```
 
 #### Bounded Execution

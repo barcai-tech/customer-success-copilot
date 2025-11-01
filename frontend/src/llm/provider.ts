@@ -78,7 +78,7 @@ export async function callLLM(
   opts: ProviderOptions = {}
 ): Promise<LlmResponse> {
   const apiKey = mustEnv("OPENAI_API_KEY");
-  const model = process.env["OPENAI_MODEL"] ?? "gpt-4o-mini";
+  const model = process.env["OPENAI_MODEL"] ?? "gpt-4.1";
   const baseUrl = process.env["OPENAI_BASE_URL"] ?? "https://api.openai.com/v1";
   const maxRetries = parseEnvInt("OPENAI_MAX_RETRIES", 2);
   const timeoutMs = parseEnvInt("OPENAI_TIMEOUT_MS", 30000);
