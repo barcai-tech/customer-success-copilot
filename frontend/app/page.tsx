@@ -3,6 +3,7 @@ import { Features } from "@/src/components/landing/Features";
 import { CaseStudy } from "@/src/components/landing/CaseStudy";
 import { TechStack } from "@/src/components/landing/TechStack";
 import { CallToAction } from "@/src/components/landing/CallToAction";
+import { LandingSchema, OrganizationSchema } from "@/src/lib/schema";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -38,6 +39,8 @@ export const metadata: Metadata = {
 export default function Home() {
   return (
     <div className="w-full h-full overflow-y-auto">
+      <LandingSchema />
+      <OrganizationSchema />
       <LandingHero />
       <Features />
       <CaseStudy />

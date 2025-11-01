@@ -67,6 +67,10 @@ export const metadata: Metadata = {
   authors: [{ name: "Barcai Technology", url: "https://barcai-tech.com" }],
   creator: "Barcai Technology",
   publisher: "Barcai Technology",
+  referrer: "strict-origin-when-cross-origin",
+  formatDetection: {
+    telephone: false,
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
@@ -75,6 +79,15 @@ export const metadata: Metadata = {
     title: "Customer Success Copilot - AI-Powered CS Intelligence",
     description:
       "Conversational AI that analyzes customer health, generates insights, and produces business-ready outputs for Customer Success teams.",
+    images: [
+      {
+        url: "https://customer-success-copilot.barcai-tech.com/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "Customer Success Copilot - AI Intelligence Platform",
+        type: "image/png",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
