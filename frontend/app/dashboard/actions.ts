@@ -15,6 +15,7 @@ import {
   GLOBAL_CONTRACTS,
   GLOBAL_TICKETS,
   GLOBAL_USAGE,
+  refreshOverdueContractDates,
 } from "@/src/db/seed-data";
 import {
   sanitizeExternalId,
@@ -26,6 +27,14 @@ import {
 import type { CustomerRow } from "@/src/store/customer-store";
 
 type ContractInsert = typeof contracts.$inferInsert;
+
+/**
+ * Refreshes overdue demo contract dates.
+ * Called periodically to ensure public demo companies always have future renewal dates.
+ */
+export async function refreshDemoContractDates(): Promise<void> {
+  refreshOverdueContractDates();
+}
 
 export async function listCustomersForUser(): Promise<CustomerRow[]> {
   const { userId } = await auth();
@@ -84,6 +93,9 @@ export async function getCustomerDetails(externalId: string) {
 
   // For guests (no userId), return public demo data
   if (!userId) {
+    // Refresh overdue demo contract dates on every guest request
+    refreshOverdueContractDates();
+
     const company = GLOBAL_COMPANIES.find((c) => c.id === id);
     const contract = GLOBAL_CONTRACTS[id];
     const tickets = GLOBAL_TICKETS[id];
