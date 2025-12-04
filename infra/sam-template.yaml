@@ -48,11 +48,19 @@ Parameters:
     Type: String
     Default: ""
     Description: "Optional SNS topic ARN to notify on alarms"
+  LogGroupKmsKeyArn:
+    Type: String
+    Default: ""
+    Description: "Optional KMS Key ARN for encrypting CloudWatch Log Groups. If empty, a new key is created when monitoring is enabled."
 
 Conditions:
   HasDatabaseUrlParam: !Not [!Equals [!Ref DatabaseUrlParamName, ""]]
   MonitoringEnabled: !Equals [!Ref EnableMonitoring, "true"]
   HasAlarmTopic: !Not [!Equals [!Ref AlarmTopicArn, ""]]
+  HasLogGroupKmsKey: !Not [!Equals [!Ref LogGroupKmsKeyArn, ""]]
+  CreateLogGroupKmsKey: !And
+    - !Condition MonitoringEnabled
+    - !Not [!Condition HasLogGroupKmsKey]
 
 Globals:
   Function:
@@ -88,6 +96,43 @@ Resources:
         AllowHeaders: "'Content-Type,X-Signature,X-Timestamp,X-Client'"
         AllowOrigin: !Sub "'${AllowedOrigin}'"
 
+  LogGroupKmsKey:
+    Type: AWS::KMS::Key
+    Condition: CreateLogGroupKmsKey
+    Properties:
+      Description: "KMS key for encrypting CloudWatch Log Groups"
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: "Enable IAM User Permissions"
+            Effect: Allow
+            Principal:
+              AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+            Action: "kms:*"
+            Resource: "*"
+          - Sid: "Allow CloudWatch Logs"
+            Effect: Allow
+            Principal:
+              Service: !Sub "logs.${AWS::Region}.amazonaws.com"
+            Action:
+              - "kms:Encrypt*"
+              - "kms:Decrypt*"
+              - "kms:ReEncrypt*"
+              - "kms:GenerateDataKey*"
+              - "kms:Describe*"
+            Resource: "*"
+            Condition:
+              ArnLike:
+                "kms:EncryptionContext:aws:logs:arn": !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*"
+
+  LogGroupKmsKeyAlias:
+    Type: AWS::KMS::Alias
+    Condition: CreateLogGroupKmsKey
+    Properties:
+      AliasName: !Sub "alias/${AWS::StackName}-log-group-key"
+      TargetKeyId: !Ref LogGroupKmsKey
+
   GetCustomerUsage:
     Type: AWS::Serverless::Function
     Properties:
@@ -120,6 +165,10 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${GetCustomerUsage}"
       RetentionInDays: !Ref LogRetentionDays
+      KmsKeyId: !If
+        - HasLogGroupKmsKey
+        - !Ref LogGroupKmsKeyArn
+        - !GetAtt LogGroupKmsKey.Arn
 
   GetCustomerUsageErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -171,6 +220,10 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${GetRecentTickets}"
       RetentionInDays: !Ref LogRetentionDays
+      KmsKeyId: !If
+        - HasLogGroupKmsKey
+        - !Ref LogGroupKmsKeyArn
+        - !GetAtt LogGroupKmsKey.Arn
 
   GetRecentTicketsErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -222,6 +275,10 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${GetContractInfo}"
       RetentionInDays: !Ref LogRetentionDays
+      KmsKeyId: !If
+        - HasLogGroupKmsKey
+        - !Ref LogGroupKmsKeyArn
+        - !GetAtt LogGroupKmsKey.Arn
 
   GetContractInfoErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -273,6 +330,10 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${CalculateHealth}"
       RetentionInDays: !Ref LogRetentionDays
+      KmsKeyId: !If
+        - HasLogGroupKmsKey
+        - !Ref LogGroupKmsKeyArn
+        - !GetAtt LogGroupKmsKey.Arn
 
   CalculateHealthErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -324,6 +385,10 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${GenerateEmail}"
       RetentionInDays: !Ref LogRetentionDays
+      KmsKeyId: !If
+        - HasLogGroupKmsKey
+        - !Ref LogGroupKmsKeyArn
+        - !GetAtt LogGroupKmsKey.Arn
 
   GenerateEmailErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
@@ -375,6 +440,10 @@ Resources:
     Properties:
       LogGroupName: !Sub "/aws/lambda/${GenerateQbrOutline}"
       RetentionInDays: !Ref LogRetentionDays
+      KmsKeyId: !If
+        - HasLogGroupKmsKey
+        - !Ref LogGroupKmsKeyArn
+        - !GetAtt LogGroupKmsKey.Arn
 
   GenerateQbrOutlineErrorsAlarm:
     Type: AWS::CloudWatch::Alarm
